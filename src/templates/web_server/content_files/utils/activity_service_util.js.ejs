@@ -1,0 +1,67 @@
+const LoggerUtil    = require("./logger_util");
+
+class ActivityServiceUtil {
+    constructor(database_models, helper_util) {
+        this.name           = "activity_service_util";
+        this.database       = database_models;
+        this.helper         = helper_util;
+        this.ENV            = this.helper.ENV
+
+        this.logger         = new LoggerUtil(this.name, this.ENV);
+
+        this.member_log     = database?.MemberActivity;
+        this.store_log      = database?.StoreWebsiteActivity;
+    }
+
+    recordMemberActivity = async (description, permission_name, member, table, record_id = null) => {
+        try {
+            //destructure membe r to get id or public_id
+            const { id: member_id, public_id: member_public_id } = member;
+
+            //determine what to reference member by id or public_id
+            const record_key = isNaN(record_id) ? "record_public_id" : "record_id";
+
+            // create activity object
+            const activity = { description, permission_name, table, member_id, member_public_id };
+            activity[record_key] = record_id;
+
+            //save to databse
+            if (this.helper.isProduction() || this.ENV.ACTIVITY_TABLE_LOG == "ON") {
+                await this.member_log.create(activity);
+            }
+        }
+        catch (error) {
+            // Log the error with method-specific details
+            const params = { description, permission_name, member, table, record_id }; // Empty params as placeholder
+            this.logger.logMethodError("error", this.name, "recordMemberActivity", params, error);
+            return null;
+        }
+    }
+
+    recordStoreWebisteActivity = async (description, permission_name, store_id, table, record_id = null) => {
+        try {
+            //determine what to reference store or record by id or public_id
+            const store_key = isNaN(store_id) ? "store_public_id" : "store_id";
+            const record_key = isNaN(record_id) ? "record_public_id" : "record_id";
+
+            // create activity object
+            const activity = { description, permission_name, table };
+            activity[store_key] = store_id;
+            activity[record_key] = record_id;
+
+            //save to databse
+            if (this.helper.isProduction() || this.ENV.ACTIVITY_TABLE_LOG == "ON") {
+                await this.store_log.create(activity);
+            }
+        }
+        catch (error) {
+            // Log the error with method-specific details
+            const params = { description, permission_name, store_id, table, record_id };
+            this.logger.logMethodError("error", this.name, "recordStoreWebisteActivity", params, error);
+            return null;
+        }
+    }
+
+}
+
+module.exports = ActivityServiceUtil

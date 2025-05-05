@@ -1,0 +1,42 @@
+
+class PermissionVerifierMiddleWare {
+    constructor(helper_util) {
+        this.helper_util    = helper_util;
+        this.global_vars    = helper_util?.global_vars;
+    }
+
+    hasPermission = (permission_name) => {
+        return (req, res, next) => {
+            const { current_member }    = req;
+            const role_id               = current_member?.role_id || 0;
+            const member_is_active      = current_member.is_guest || current_member?.is_active;
+            const member_id             = current_member.id;
+
+            if (!role_id) { res.errResponse(403, "unauthorized_request_user"); }
+
+            if (!member_is_active) { res.errResponse(403, "unauthorized_request_user"); }
+
+            // Fetch the permission either from cache or database
+            const permissions           = this.global_vars.getVariable("PERMISSIONS");
+            const roles_permissions     = this.global_vars.getVariable("ROLES_PERMISSIONS");
+            const permission            = permissions.find((obj) => { return obj?.name === permission_name});
+
+            if (!permission) { res.errResponse(403, "unauthorized_access"); } 
+
+            // Fetch role permission access from cache or database
+            const permission_id         = permission?.id;
+            const role_has_access       = roles_permissions.find((obj) => { return obj?.role_id === role_id && obj?.permission_id === permission_id});
+            const member_has_access     = roles_permissions.find((obj) => { return obj?.member_id === member_id && obj?.permission_id === permission_id});
+            const has_access            = role_has_access || member_has_access;
+
+            if (!has_access) { res.errResponse(403, "unauthorized_access"); } 
+
+            req.permission_name = permission_name
+            
+            next();
+        };
+    };
+    
+}
+
+module.exports = PermissionVerifierMiddleWare;

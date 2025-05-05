@@ -1,0 +1,46 @@
+const LoggerUtil    = require("../utils/logger_util");
+const moment        = require("moment");
+
+class AuthenticatorMiddleWare {
+    constructor(database_models, helper_util) {
+        this.name                   = "authenticator_middleware";
+        this.database_models        = database_models;
+        this.helper                 = helper_util;
+
+        this.logger                 = new LoggerUtil(this.name, this.helper.ENV);
+    }
+
+
+    // method to update request with session data
+    updateRequestWithSessionData = (req, valid_member ) => {
+        req.current_member  = valid_member;
+    }
+
+    // Method to Authenticate user request and log out if not valid
+    authenticateRequest = async (req, res, next) => {
+        try {
+            // Get tokens from headers or cookies
+            const token             = req.headers['fiyalo-authorization']?.split(' ')[1] || req.cookies.fiyalo_token;
+            const device_token      = req.headers['x-device-token'] || req.cookies.device_token;
+            const origin            = req?.headers?.origin || req?.headers?.referer || "unknown origin";
+            const user_agent        = req.headers['user-agent'];
+
+            console.log({ optional: false, token, device_token, origin, cookies: req.cookies })
+
+            const is_valid_member = false
+
+            this.updateRequestWithSessionData(req, is_valid_member);
+            // Proceed to the next middleware or route handler
+            next();
+        } 
+        catch (error) {
+            const headers   = req?.headers;
+            const cookies   = req?.cookies;
+            const params    = { headers, cookies, error };
+            this.logger.error(`${this.name} - authenticateRequest`, params);
+            return res.errResponse(401, 'unauthorized_request');
+        }
+    }
+}
+
+module.exports = AuthenticatorMiddleWare;

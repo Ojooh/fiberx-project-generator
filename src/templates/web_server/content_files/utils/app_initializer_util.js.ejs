@@ -1,0 +1,21 @@
+const LoggerUtil    = require("./logger_util");
+
+class AppInitializerUtil {
+    constructor(database_models, helper_util) {
+        this.name               = "app_initializer_util"
+        this.database_models    = database_models;
+        this.helper_util        = helper_util;
+        this.ENV                = helper.util?.ENV;
+
+        this.logger             = new LoggerUtil(this.name, this.ENV);
+    }
+
+    // Method to cache relevant data
+    cacheRelevantData = async () => {}
+
+    // Method to run some tests
+    runTests = async () => { }
+
+}
+
+module.exports = AppInitializerUtil;

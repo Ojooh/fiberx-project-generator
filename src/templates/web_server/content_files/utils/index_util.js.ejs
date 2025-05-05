@@ -1,0 +1,48 @@
+const DeviceFingerprintUtil         = require("./device_fingerprint_util.js")
+const EncryptorDecryptorUtil        = require("./encryptor_decryptor_util");
+const GlobalVariableManager         = require("./global_variable_manager");
+const InputTransformerUtil          = require("./input_transformer_util.js");
+const InputValidatorUtil            = require("./input_validation_uttil");
+const UUIDGeneratorUtil             = require("./uuid_generator_util");
+
+class HelperUtil {
+    constructor(env_variables = {}) {
+        // Initialize all utils
+        this.global_vars                    = GlobalVariableManager.getInstance();
+        this.ENV                            = env_variables;
+
+        this.device_fingerprint_util        = new DeviceFingerprintUtil();
+        this.encrypt_decrypt_util           = this.setEncryptorDecryptorUtil();
+        this.input_transformer_util         = new InputTransformerUtil(this.ENV);
+        this.input_validator_util           = new InputValidatorUtil(this.ENV); 
+        this.uuid_generator_util            = new UUIDGeneratorUtil();
+    }
+
+    // Method to initialize the EncryptorDecryptorUtil with environment configuration
+    setEncryptorDecryptorUtil = () => {
+        const encryption_key = this.global_vars.getVariable('ENCRYPTION_KEY') || EncryptorDecryptorUtil.generateEncryptionV1Key();
+
+        return new EncryptorDecryptorUtil(this.ENV, encryption_key);
+    }
+
+    // Delayed execution for a specified number of seconds
+    sleep = (secs) => new Promise(resolve => setTimeout(resolve, secs * 1000));
+
+    // Method to calculate pagination offset and limit
+    calculatePaginationOffset = (page, size) => {
+        const adjusted_size = size > 200 ? 200 : size;
+        const limit = adjusted_size ? +adjusted_size : 10;
+        const offset = page ? page * limit : 0;
+        return { limit, offset };
+    };
+
+    // Method to format paginated data into a standard structure
+    formatPaginatedResponse = (data, page, limit) => {
+        const { count: totalItems, rows: records } = data;
+        const currentPage = page ? +page : 0;
+        const totalPages = Math.ceil(totalItems / limit);
+        return { totalItems, records, totalPages, currentPage };
+    };
+}
+
+module.exports = HelperUtil;

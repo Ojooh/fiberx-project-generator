@@ -1,0 +1,103 @@
+
+# <%= project_name %>
+
+<%= description %>
+
+---
+
+## 📁 Project Type
+**<%= project_type %>**
+
+## 🚀 Getting Started
+
+These instructions will help you get the server up and running on your local machine.
+
+### Prerequisites
+
+- Node.js (v16 or higher recommended)
+- npm
+- A `.env.yaml` file (see `.env_ample.yaml` for example values)
+
+### Installation
+
+```bash
+git clone <%= repository_url %>
+cd <%= project_package_name %>
+npm install
+````
+
+### Running the Application
+
+```bash
+npm start
+```
+
+The server will run by default on `http://localhost:<%= port || 3000 %>`.
+
+---
+
+## 📦 Folder Structure
+
+```
+.
+├── api_v1/
+│   ├── client/
+│   ├── controllers/
+│   ├── enums/
+│   ├── external_services/
+│   ├── modules/
+│   └── routes/
+├── bin/
+├── development_scripts/
+├── local_uploads/
+├── logs/
+├── middleware/
+├── models/
+├── utils/
+├── .env.yaml
+├── app.js
+└── package.json
+```
+
+---
+
+## 🧪 Environment Variables
+
+This project uses `.env.yaml` for configuration. Start by copying the sample:
+
+```bash
+cp .env_ample.yaml .env.yaml
+```
+
+Then modify `.env.yaml` with your own settings.
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repo
+2. Create your feature branch (`git checkout -b feature/feature-name`)
+3. Commit your changes (`git commit -m 'Add feature'`)
+4. Push to the branch (`git push origin feature/feature-name`)
+5. Open a Pull Request
+
+---
+
+## 👤 Author
+
+**<%= author %>**
+
+---
+
+## 📄 License
+
+This project is licensed under the **<%= license %>** license.
+
+```
+
+---
+
+### ✅ Notes:
+- Uses standard documentation sections.
+- Clear structure and usage instructions.
+- All dynamic values are injected via `< % =  ... % >` placeholders.
