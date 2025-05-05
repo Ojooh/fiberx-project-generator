@@ -11,7 +11,7 @@ const APP_TYPES = {
 const DEFAULT_LICENSE = "MIT";
 const DEFAULT_AUTHOR = "FiberX Innovations";
 const DEFAULT_VERSION = "0.0.1";
-const GITHUB_BASE_URL = "https://github.com/fiberx-innovations/";
+const GITHUB_BASE_URL = "https://github.com/fiberx-innovations/fiberx-project-generator";
   
 const VALID_PROJECT_NAME_REGEX = /^[a-z0-9\-]+$/;
 
