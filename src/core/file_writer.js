@@ -6,7 +6,8 @@ const ejs       = require("ejs");
 
 const { 
     FOLDER_STRUCTURE,
-    STATIC_FILES
+    STATIC_FILES,
+    GENERATED_FILES
 } = require("../enums/constants");
 
 // Method to handle file and folder creation for project scaffolding
@@ -31,7 +32,7 @@ class FileWriter {
     // Method to copy static files (like .env, .gitignore)
     copyStaticFiles = (context) => {
         this.static_files.forEach(file_name => {
-            const src   = path.join(this.template_root, "static", file_name);
+            const src   = path.join(this.template_root, "static_files", file_name);
             const dest  = path.join(context.target_dir, file_name);
 
             if (fs.existsSync(src)) { fs.copyFileSync(src, dest); }
@@ -40,9 +41,10 @@ class FileWriter {
 
     // Method to generate files with dynamic placeholders (e.g., README, package.json)
     generateTemplatedFiles = async (context) => {
+        console.log({ context })
         for (const file of this.files_to_generate) {
             const target_path   = path.join(context.target_dir, file.output);
-            const template_path = path.join(this.template_root, "templates", file.template);
+            const template_path = path.join(this.template_root, "content_files", file.template);
             await this.writeContentFile(target_path, template_path, context);
         }
     }

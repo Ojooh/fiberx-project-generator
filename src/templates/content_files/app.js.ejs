@@ -11,12 +11,12 @@ const request_ip                    = require("request-ip");
 const socket_io                     = require("socket.io");
 
 const EnvManagerUtil                = require("./utils/env_manager_util");
-const HelperUtil                    = require("./utils/index");
+const HelperUtil                    = require("./utils/index_util");
 const AppInitializerUtil            = require("./utils/app_initializer_util");
 const SocketManagerUtil             = require("./utils/socket_manager_util");
-const ResponderMiddleWare           = require("./middleware/responder_middle_ware");
-const CORSManagerMiddleWare         = require("./middleware/cors_manager_middle_ware");
-const Database                      = require("./models/index");
+const ResponderMiddleWare           = require("./middle_wares/responder_middle_ware");
+const CORSManagerMiddleWare         = require("./middle_wares/cors_manager_middle_ware");
+const DatabaseManager               = require("./models/index");
 const RouteManager                  = require("./api_v1/routes/index");
 
 

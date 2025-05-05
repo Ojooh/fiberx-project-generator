@@ -22,12 +22,15 @@ class AppInitializer {
             await this.validateAndPrepareDirectory();
             const prompt_data = await this.prompt_runner.runPrompts();
 
-            this.context = {...prompt_data, target_dir: this.base_dir };
+            const { metadata, project_type } = prompt_data
+
+            this.context = {...metadata, project_type, target_dir: this.base_dir };
 
             await this.generateProjectFiles();
             console.log("✅ Project scaffold generated successfully. \n");
         } 
         catch (error) {
+            console.log({ error })
             console.error("❌ Error initializing project:", error.message);
         }
     }

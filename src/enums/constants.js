@@ -11,7 +11,7 @@ const APP_TYPES = {
 const DEFAULT_LICENSE = "MIT";
 const DEFAULT_AUTHOR = "FiberX Innovations";
 const DEFAULT_VERSION = "0.0.1";
-const GITHUB_BASE_URL = "https://github.com/fiberx-innovations/fiberx-project-generator";
+const GITHUB_BASE_URL = "https://github.com/fiberx-innovations/";
   
 const VALID_PROJECT_NAME_REGEX = /^[a-z0-9\-]+$/;
 
@@ -32,7 +32,7 @@ const FOLDER_STRUCTURE = [
     "local_uploads/emails",
     "local_uploads/storage",
     "logs",
-    "middleware",
+    "middle_wares",
     "utils"
 ];
 
@@ -49,7 +49,7 @@ const GENERATED_FILES = [
     { template: "development_scripts/code_content_templates.js.ejs", output: "development_scripts/code_content_templates.js" },
     { template: "middle_wares/authenticator_middle_ware.js.ejs", output: "middle_wares/authenticator_middle_ware.js" },
     { template: "middle_wares/cors_manager_middle_ware.js.ejs", output: "middle_wares/cors_manager_middle_ware.js" },
-    { template: "middle_wares/permission_verifier_middle_wares.js.ejs", output: "middle_wares/permission_verifier_middle_ware.js" },
+    { template: "middle_wares/permission_verifier_middle_ware.js.ejs", output: "middle_wares/permission_verifier_middle_ware.js" },
     { template: "middle_wares/responder_middle_ware.js.ejs", output: "middle_wares/responder_middle_ware.js" },
     { template: "utils/app_initializer_util.js.ejs", output: "utils/app_initializer_util.js" },
     { template: "utils/activity_service_util.js.ejs", output: "utils/activity_service_util.js" },
@@ -61,7 +61,7 @@ const GENERATED_FILES = [
     { template: "utils/gcs_util_util.js.ejs", output: "utils/gcs_util_util.js" },
     { template: "utils/logger_util.js.ejs", output: "utils/logger_util.js" },
     { template: "utils/uuid_gen_util.js.ejs", output: "utils/uuid_gen_util.js" },
-    { template: "utils/text_number_transformer_util.js.ejs", output: "utils/text_number_transformer_util.js" },
+    { template: "utils/input_transformer_util.js.ejs", output: "utils/input_transformer_util.js" },
     { template: "utils/device_fingerprint_util.js.ejs", output: "utils/device_fingerprint_util.js" },
     { template: "utils/server_util.js.ejs", output: "utils/server_util.js" },
     { template: "utils/index_util.js.ejs", output: "utils/index_util.js" }

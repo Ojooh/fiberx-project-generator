@@ -1,6 +1,6 @@
 // src/cli/prompt_runner.js
 
-const inquirer = require("inquirer");
+const inquirer = require('inquirer');
 const { APP_TYPES, DEFAULT_LICENSE, DEFAULT_AUTHOR, GITHUB_BASE_URL } = require("../enums/constants");
 
 class PromptRunner {
@@ -8,6 +8,7 @@ class PromptRunner {
         this.project_name   = "";
         this.project_type   = "";
         this.metadata       = {};
+        this.prompt         = inquirer.createPromptModule();
     }
 
     // Method to run interactive prompts for user input
@@ -24,7 +25,7 @@ class PromptRunner {
 
     // Method to prompt for and validate project name
     getProjectName = async () => {
-        const { project_name } = await inquirer.prompt([
+        const { project_name } = await this.prompt([
             {
                 type: "input",
                 name: "project_name",
@@ -43,7 +44,7 @@ class PromptRunner {
 
     // Method to prompt for project type (web-server, etc.)
     getProjectType = async () => {
-        const { project_type } = await inquirer.prompt([
+        const { project_type } = await this.prompt([
             {
                 type: "list",
                 name: "project_type",
@@ -72,7 +73,7 @@ class PromptRunner {
 
         const default_repo = `${GITHUB_BASE_URL}${full_project_name}.git`;
 
-        const responses = await inquirer.prompt([
+        const responses = await this.prompt([
             {
                 type: "input",
                 name: "version",
@@ -113,6 +114,12 @@ class PromptRunner {
                 name: "requires_file_upload_download",
                 message: "Does this app require file uploading or downloading?",
                 default: false
+            },
+            {
+                type: "input",
+                name: "port",
+                message: "Server port number?",
+                default: 3000
             }
             
         ]);

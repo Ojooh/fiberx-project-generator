@@ -8,7 +8,7 @@ class FiberxProjectGeneratorCLI {
     constructor() {
         // Method to extract CLI arguments
         this.project_path   = this.extractTargetPath();
-        this.initializer    = new AppInitializer();
+        this.initializer    = new AppInitializer(this.project_path);
     }
 
     // Method to extract and normalize the target path
@@ -22,7 +22,7 @@ class FiberxProjectGeneratorCLI {
     // Method to start the initialization process
     run = async () => {
         try {
-            await this.initializer.initialize(this.project_path);
+            await this.initializer.initialize();
         } 
         catch (err) {
             console.error("❌ Error while generating project:", err.message);
