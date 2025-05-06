@@ -26,17 +26,24 @@ This tool is ideal for rapidly starting projects with predefined structures and 
 Install globally via npm:
 
 ```bash
-npm install -g fiberx-project-generator
+npm install -g https://github.com/Ojooh/fiberx-project-generator.git
 ````
 
-Once installed, the `fiberx` command becomes available globally.
+Update global via npm:
+
+```bash
+npm cache clean --force
+npm install -g https://github.com/Ojooh/fiberx-project-generator.git
+````
+
+Once installed, the `fiberx_project_generator` command becomes available globally.
 
 ---
 
 ## 🚀 Usage
 
 ```bash
-fiberx [target-directory]
+fiberx_project_generator [target-directory]
 ```
 
 * If no directory is specified (`.`), the current directory is used.
@@ -52,13 +59,13 @@ fiberx [target-directory]
 
 ```bash
 # Scaffold in current folder
-fiberx .
+fiberx_project_generator .
 
 # Scaffold a new web server app in 'my-api'
-fiberx my-api
+fiberx_project_generator my-api
 
 # Scaffold a background processor
-fiberx task-runner
+fiberx_project_generator task-runner
 ```
 
 You will be prompted to pick the project type interactively.

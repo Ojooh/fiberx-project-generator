@@ -1,6 +1,6 @@
 {
   "name": "fiberx-project-generator",
-  "version": "0.0.1",
+  "version": "0.0.4",
   "description": "fiberx-project-generator is a simple CLI tool to scaffold starter templates for your projects. It helps you quickly set up consistent boilerplate for fiberx applications:",
   "bin": {
     "fiberx_project_generator": "./bin/fiberx_project_generator.js"

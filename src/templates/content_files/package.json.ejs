@@ -14,7 +14,7 @@
 		"seeder:undo": "node development_scripts/seeder_manager.js undo_seed",
 		"seeder:undo:model": "node development_scripts/seeder_manager.js undo_seed --model_name", 
 		"seeder:undo:file": "node development_scripts/seeder_manager.js undo_seed --file_name",  
-		"seeder:help": "echo 'Use seeder:create, seeder:create, or seeder:run",
+		"seeder:help": "echo 'Use seeder:create, seeder:create, or seeder:run"
     },
     "author": "<%= author %>",
     "license": "<%= license %>",
@@ -22,6 +22,9 @@
 		"type": "git",
 		"url": "<%= repository %>"
     },
-    "keywords": <%- JSON.stringify(keywords) %>
+    "keywords": <%- JSON.stringify(keywords) %>,
+    "dependencies": {
+      "fiberx-dbms": "github:Ojooh/fiberx-dbms#development"
+    },
 }
   
