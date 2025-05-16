@@ -1,7 +1,6 @@
 const express                           = require("express");
 
 const ActivityServiceUtil               = require("../../utils/activity_service_util");
-const PermissionVerifierMiddleWare      = require("../../middle_wares/permission_verifier_middle_ware");
 const AuthenticatorMiddleWare           = require("../../middle_wares/authenticator_middle_ware.js");
 
 
@@ -10,7 +9,7 @@ class RouteManager {
     constructor(database_models, helper_util) {
         this.router                                 = express.Router();
 
-        this.activity_service                       = new ActivityService(database_models, helper_util);
+        this.activity_service                       = new ActivityServiceUtil(database_models, helper_util);
         this.authenticator                          = new AuthenticatorMiddleWare(database_models, helper_util);
 
         this.auth_router                            = new AuthRouter(database_models, helper_util, this.authenticator, this.activity_service);
