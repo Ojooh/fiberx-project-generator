@@ -1,0 +1,42 @@
+
+const fs            = require('fs');
+const path          = require('path');
+
+class LoggerUtil {
+    constructor(module_name, ENV = null) {
+        this.module_name        = module_name;
+        this.store_log          = ENV ? ENV.STORE_LOG : "NO";
+        this.log_file_path      = path.join(__dirname, "..", `logs/${module_name}-${Math.floor(Date.now() / 1000)}.log`);
+    }
+
+    // General method to log messages
+    log = (message = "", data_error = {}, status = "info", ) => {
+        const timestamp             = new Date().toISOString();
+        const error_str             = data_error && Object.keys(data_error).length ? JSON.stringify(data_error) : "";
+        const log_message           = `${timestamp} [${status}] ${message} ${error_str}\n`;
+        const log_object            = { timestamp, status, message, data_error }
+
+        if (this.store_log === 'YES') { fs.appendFileSync(this.log_file_path, log_message); }
+
+        console.log(`\n${timestamp} [${status}] ${message}\n`);
+
+        if(data_error && Object.keys(data_error).length) {
+           console.log({ data_error});
+           console.log("\n");
+           console.log("========================================");
+        }
+
+        return log_object;
+    }
+
+    // Convenience methods for different log levels
+    info = (message, data = "") => { return this.log(message, data, "INFO"); }
+
+    error = (message, error = "") => { return this.log(message, error, "ERROR"); }
+
+    alert = (message, data = "") => { return this.log(message, data, "ALERT"); }
+
+    success = (message, data = "") => { return this.log(message, data, "SUCCESS" ); }
+}
+
+module.exports = LoggerUtil;

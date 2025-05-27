@@ -1,0 +1,69 @@
+const path          = require('path');
+const FiberXDBMS    = require("fiberx-dbms");
+
+const LoggerUtil    = require("../utils/logger_util");
+
+class DatabaseManager {
+    constructor(env_variables) {
+        this.name               = "database_manager";
+        this.ENV                = env_variables;
+        this.app_id             = this.ENV?.APP_ID;
+        this.app_public_key     = this.ENV?.APP_PUBLIC_KEY;
+
+
+
+        this.fiberx_dbms        = new FiberXDBMS();
+        this.logger             = new LoggerUtil(this.name, this.ENV);
+        this.models_dir_root    = path.join(__dirname)
+    }
+
+    // Method to initialize fiberx-dbms
+    initializeDBMS = async() => {
+        try {
+            const initialized   = await this.fiberx_dbms.initializeDBMS(this.app_id, this.app_public_key);
+
+            if(!initialize) {
+                throw new Error("DBMS was not initialzed something went wrong");
+            }
+
+            // create model files
+            this.fiberx_dbms.createSchemaModels("models");
+
+            return this.getModels();
+
+        }
+        catch(error) {
+            const params = { error };
+            this.logger.error(`${this.name} - initializeDBMS`, params);
+            return false
+        }
+    }
+
+    // Method to load models
+    getModels = () => {
+        const model_instances   = {};
+        const files             = fs.readdirSync(this.models_dir_root);
+
+        for (const file of files) {
+            const ext = path.extname(file);
+    
+            if (ext !== ".js") continue;
+    
+            const model_path    = path.join(this.models_dir_root, file);
+            const ModelClass    = require(model_path);
+    
+            if (typeof ModelClass !== "function") continue;
+    
+            const class_name    = ModelClass.name;
+            const instance      = new ModelClass();
+    
+            model_instances[class_name] = instance;
+        }
+
+        return model_instances;
+
+    }
+    
+}
+
+module.exports = DatabaseManager;

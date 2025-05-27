@@ -1,0 +1,78 @@
+const rate_limitter                 = require("express-rate-limit");
+
+class ResponderMiddleWare  {
+    constructor(env_variables) {
+        this.message                    = 'Too many requests from this IP, please try again later';
+        this.window                     = 20 * 60 * 1000;
+        this.max_requests               = 250;
+        this.ENV                        = env_variables;
+    }
+
+    requestRateLimitHandler = (req, res, next) => {
+        // Log the request that exceeded the rate limit
+        console.log(`Rate limit exceeded for IP: ${req.ip}, Path: ${req.path}`);
+
+        // Send a custom JSON response
+        res.status(429).json({
+            status: 'rate_limit',
+            error: 'Rate limit exceeded',
+            message: 'You have exceeded the rate limit for this endpoint. Please try again later.'
+        });
+    }
+
+    apiResponseFormatter = (req, res, next) => {
+        res.errResponse = (code = 500, msg = 'An error occured', data = []) => {
+            res.status(code).json({ status: 'error', msg, data });
+        };
+
+        res.successResponse = (code = 200, msg = 'Operation Successful', data = []) => {
+            res.status(code).json({ status: 'success', msg, data });
+        };
+
+        res.infoResponse = (code = 200, msg = 'Operation Information', data = []) => {
+            res.status(code).json({ status: 'info', msg, data });
+        };
+
+        next();
+    }
+
+    handle404Error = (req, res) => {
+        return res.status(404).json({ status: "error", code: "404", msg: 'invalid_request_resource_not_found' });
+    }
+
+    handleGeneralError = (err, req, res, next) => {
+        const is_development    = this.ENV?.MODE === 'development';
+        res.locals.message      = err.message;
+        res.locals.error        = is_development ? err : {};
+
+        res.status(500).json({ status: 'error', code: 500, msg: 'Server error' });
+    }
+
+    initialiazeRateLimitter = () => {
+        return rate_limitter({ windowMs: this.window, max: this.max_requests, handler: this.requestRateLimitHandler, message: this.message })
+    }
+
+    // method to secure response headers
+    secureHeaders = (req, res, next) => {
+        // Prevent XSS
+        res.setHeader("X-XSS-Protection", "1; mode=block");
+
+        // Prevent MIME-type sniffing
+        res.setHeader("X-Content-Type-Options", "nosniff");
+
+        // Disable framing (clickjacking protection)
+        res.setHeader("X-Frame-Options", "SAMEORIGIN");
+
+        // Content Security Policy
+        res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; object-src 'none';");
+
+        // HSTS - force HTTPS in supported browsers
+        res.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+
+        next();
+    };
+
+
+}
+
+module.exports = ResponderMiddleWare ;

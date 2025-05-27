@@ -1,0 +1,31 @@
+const express                           = require("express");
+
+const ActivityServiceUtil               = require("../../utils/activity_service_util");
+const AuthenticatorMiddleWare           = require("../../middle_wares/authenticator_middle_ware.js");
+
+
+// Class RouteManager
+class RouteManager {
+    constructor(database_models, helper_util) {
+        this.router                                 = express.Router();
+
+        this.activity_service                       = new ActivityServiceUtil(database_models, helper_util);
+        this.authenticator                          = new AuthenticatorMiddleWare(database_models, helper_util);
+
+        this.auth_router                            = new AuthRouter(database_models, helper_util, this.authenticator, this.activity_service);
+    
+        // Initialize routes
+        this.initializeRoutes();
+    }
+
+    initializeRoutes = () => {
+        this.router.use("/access_control", this.access_control_router.getRoutes());
+        this.router.use("/auth", this.auth_router.getRoutes());
+    }
+
+    getRoutes = () => { return this.router; }
+}
+
+
+module.exports = RouteManager;
+

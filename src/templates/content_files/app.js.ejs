@@ -1,0 +1,160 @@
+// Required modules
+const http                          = require("http");
+const express                       = require("express");
+const path                          = require("path");
+const cookie_parser                 = require("cookie-parser");
+<% if (requires_file_upload_download) { %>
+  const file_upload                 = require("express-fileupload");
+<% } %>
+const body_parser                   = require("body-parser");
+const request_ip                    = require("request-ip");
+const socket_io                     = require("socket.io");
+
+const EnvManagerUtil                = require("./utils/env_manager_util");
+const HelperUtil                    = require("./utils/index_util");
+const AppInitializerUtil            = require("./utils/app_initializer_util");
+const SocketManagerUtil             = require("./utils/socket_manager_util");
+const DatabaseManagerUtil           = require("./utils/database_manager_util");
+const ResponderMiddleWare           = require("./middle_wares/responder_middle_ware");
+const CORSManagerMiddleWare         = require("./middle_wares/cors_manager_middle_ware");
+const DatabaseManager               = require("./models/index");
+const RouteManager                  = require("./api_v1/routes/index");
+
+
+
+
+// Main Application Class
+class Application {
+  constructor() {
+		this.app              		= express();
+  		this.database_models        = {};
+    	this.io               		= null;
+    	this.api_base_url     		= "/api/v1";
+
+    	this.ENV      				= new EnvManagerUtil()?.env_data;
+		this.helper           		= new HelperUtil(this.ENV);
+
+		this.helper.global_vars.setVariable("ENV", this.ENV)
+
+		this.database 				= new DatabaseManagerUtil(this.ENV);
+		this.cors_manager     		= new CORSManagerMiddleWare(this.ENV);
+    	this.responder        		= new ResponderMiddleWare(this.ENV);
+
+		this.server           		= http.Server(this.app);
+  	}
+
+	// Async method to initialize the database
+	initializeDatabase = async () => { 
+		this.database_models = await this.database.initializeDBMS();; 
+	}
+
+	// Async method to initialize app data
+	initializeAppData = async () => {
+		this.app_initializer    = new AppInitializerUtil(this.database_models, this.helper);
+
+		await this.app_initializer.cacheRelevantData();
+	}
+
+	// set socket
+	initializeSocketIO = () => {
+		this.io             = socket_io(this.server, this.cors_manager.getSocketCORSConfig());
+		this.socket_manager = new SocketManagerUtil(this.ENV, this.database_models, this.helper);
+
+		this.io.on('connection', (socket) => { this.socket_manager.handleConnection(socket); });
+	}
+
+  // Middleware initialization
+	initializeMiddleware = () => {
+		const limiter       	= this.responder.initialiazeRateLimitter();
+		const cors_blocker  	= this.cors_manager.initializeCORSBlocking();
+
+		this.app.set('env', this.ENV.MODE);
+		this.app.use(request_ip.mw());
+		this.app.set('trust proxy', true); 
+		this.app.use(this.cors_manager.forceHttps);
+		this.app.use(this.responder.secureHeaders);
+		this.app.use(this.cors_manager.logOriginData);
+		this.app.use(limiter);
+		this.app.use(cors_blocker);
+		this.app.use(this.responder.apiResponseFormatter);
+
+		// Set render engine
+		this.app.set('views', path.join(__dirname, "api_v1/client/views"));
+		this.app.set('view engine', 'ejs');
+
+		this.app.use(express.json());
+		this.app.use(express.urlencoded({ extended: false }));
+		this.app.use(body_parser.urlencoded({ extended: false }));
+		this.app.use(body_parser.json());
+
+		this.app.use(cookie_parser());
+	<% if (requires_file_upload_download) { %>
+		this.app.use(file_upload());
+	<% } %>
+		
+
+		// Serve static files
+		this.app.use(express.static(path.join(__dirname, 'api_v1/client/assets/')));
+		this.app.use(express.static(path.join(__dirname, 'local_uploads/')));
+	}
+
+	// Route initialization
+	initializeRoutes = () => {
+		this.route_manager = new RouteManager(this.database_models, this.helper);
+		//api route
+		this.app.use(this.api_base_url, this.route_manager.getRoutes());
+
+		// Handle admin routes
+		this.app.get('/admin*', (req, res) => { res.render('admin'); });
+
+		// Handle all other routes
+		this.app.get('*', (req, res) => { res.render('index'); });
+	}
+
+	// Error handling initialization
+	initializeErrorHandling() {
+		// Handle 404 errors
+		this.app.use(this.responder.handle404Error);
+
+		// General error handler
+		this.app.use(this.responder.handleGeneralError);
+	}
+
+	// Method to start the server
+	start = async (port) => {
+		try {
+			// Establish database connection first
+			await this.initializeDatabase();
+
+			if (!this.database_models) {
+				console.error("Failed to load database");
+				process.exit(1);
+				return;
+			}
+
+			await this.initializeAppData();
+
+			// After database connection, initialize other parts of the app
+			this.initializeMiddleware();
+
+			this.initializeSocketIO();
+
+			this.initializeRoutes();
+
+			this.initializeErrorHandling();
+
+			this.app_initializer.runTests();
+
+			// Start the server
+			this.server.listen(port, () => { console.log(`Server is running on port ${port}`); });
+		} catch (error) {
+			// Handle any errors during initialization
+			console.error('Failed to start the application:', error);
+			process.exit(1); // Exit the process if there's a critical failure
+		}
+	}
+
+}
+
+// Export the class as a module
+module.exports = Application;

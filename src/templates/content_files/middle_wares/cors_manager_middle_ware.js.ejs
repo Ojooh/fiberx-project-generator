@@ -1,0 +1,78 @@
+const cors             = require("cors");
+const LoggerUtil       = require("../utils/logger_util");
+
+class CORSManagerMiddleWare  {
+    constructor(env_variables) {
+        this.name                   = "cors_manager_middle_ware";
+        this.ENV                    = env_variables;
+
+        this.allowed_origin_list    = this.getOriginList();
+        this.logger                 = new LoggerUtil(this.name, this.ENV);
+
+        this.logger.info(`Running in ${this.ENV?.MODE} Mode`);
+    }
+
+    // Middleware to log the origin of incoming requests and the request details.
+    logOriginData = (req, res, next) => {
+        // Get the 'Origin' header if it exists, otherwise use the 'Host' header as a fallback.
+        const origin_url            = req?.headers?.origin || req?.headers?.referer || "unknown origin";
+        const host_url              = req.get('host');
+        const cookies_array         = req.get("cookie") ? req.get("cookie").split("; ") : [];
+        const token                 = cookies_array.length ? cookies_array[0] : "";
+        const device_token          = cookies_array.length ? cookies_array[1] : "";
+
+        // Log the origin of the request to the console.
+        this.logger.info(`Origin of request: ${origin_url} Host Request: ${host_url}`);
+
+        // Log the HTTP method and the original URL of the request.
+        this.logger.info(`${req.method} <============> ${req.originalUrl}`);
+        this.logger.info(`Request Token <============> ${token}`);
+        this.logger.info(`Device Token <============> ${device_token}`);
+
+        // Call the next middleware or route handler in the stack.
+        next();
+    };
+
+    getOriginList = () => {
+        if (this.ENV.MODE == 'development') {
+            return ["http://localhost:5172", "http://localhost:5173"];
+        }
+        else if (this.ENV.MODE == 'staging') {
+            return [
+                "https://staging.fiberxinnovations.com", "https://www.staging.fiberxinnovations.com",
+            ];
+        }
+        else if (this.ENV.MODE == 'production') {
+            return [
+                "https://fiberxinnovations.com", "https://www.fiberxinnovations.com",
+            ];
+        }
+    }
+
+    initializeCORSBlocking = () => { return cors({ origin: this.allowed_origin_list, credentials: true }); }
+
+    getSocketCORSConfig = () => {
+        return { 
+            cors: { 
+                origin: this.allowed_origin_list, 
+                methods: ["GET", "POST"],
+            }
+        }
+    }
+
+    // method to force https request
+    forceHttps = (req, res, next) => {
+        const is_sercure = req.secure || req.headers["x-forwarded-proto"] === "https";
+        if (is_sercure) {
+            return next();
+        }
+        const host = req.headers.host;
+        const url = req.originalUrl;
+        res.redirect(301, `https://${host}${url}`);
+    };
+
+    
+
+}
+
+module.exports = CORSManagerMiddleWare 

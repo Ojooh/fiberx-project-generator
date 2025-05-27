@@ -1,0 +1,30 @@
+{
+    "name": "<%= full_project_name %>",
+    "version": "<%= version %>",
+    "description": "<%= description %>",
+    "main": "app.js",
+    "private": true,
+    "scripts": {
+		"start": "node ./bin/www",
+		"generate_new_module": "node development_scripts/create_new_module.js",
+
+		"seeder:create": "node development_scripts/seeder_manager.js create_seeder",
+		"seeder:run": "node development_scripts/seeder_manager.js seed",
+		"seeder:run:file": "node development_scripts/seeder_manager.js seed --file_name",   
+		"seeder:undo": "node development_scripts/seeder_manager.js undo_seed",
+		"seeder:undo:model": "node development_scripts/seeder_manager.js undo_seed --model_name", 
+		"seeder:undo:file": "node development_scripts/seeder_manager.js undo_seed --file_name",  
+		"seeder:help": "echo 'Use seeder:create, seeder:create, or seeder:run"
+    },
+    "author": "<%= author %>",
+    "license": "<%= license %>",
+    "repository": {
+		"type": "git",
+		"url": "<%= repository %>"
+    },
+    "keywords": <%- JSON.stringify(keywords) %>,
+    "dependencies": {
+      "fiberx-dbms": "github:Ojooh/fiberx-dbms#development"
+    }
+}
+  

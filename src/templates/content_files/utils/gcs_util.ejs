@@ -1,0 +1,275 @@
+const fs            = require('fs');
+const path          = require('path');
+const { Storage }   = require('@google-cloud/storage');
+
+const LoggerUtil    = require("./logger_util");
+
+class GCSUtil {
+    constructor(project_id, credentials, bucket_name, helper_util) {
+        this.name           = "gcs_util";
+        this.bucket_name    = bucket_name;
+        this.ENV            = helper_util?.ENV;
+
+        this.logger     = new LoggerUtil(this.name, this.ENV);
+        this.storage    = new Storage({projectId: project_id, credentials});
+        this.bucket     = this.storage.bucket(bucket_name);
+    }
+
+    // Method to parse a Google Cloud Storage URL
+    #parseGCSUrl = (url) => {
+        const regex     = /^https:\/\/storage.googleapis.com\/([^\/]+)\/(.+)$/;
+        const match     = url.match(regex);
+
+        if (!match) {
+            throw new Error('Invalid Google Cloud Storage URL.');
+        }
+
+        const bucket_name   = match[1];
+        const file_path     = match[2];
+
+        return { bucket_name, file_path };
+    }
+
+    // Method to upload a file
+    uploadFile = async (file_path, dest_path) => {
+        try {
+            await this.bucket.upload(file_path, { destination: dest_path });
+            console.log(`✅ Uploaded ${file_path} to ${this.bucket_name}/${dest_path}`);
+            return { status: true, msg: 'request_to_upload_file_sucessful' };
+        }
+        catch (error) {
+            const params = { file_path, dest_path, error };
+            this.logger.error(`${this.name} - uploadFile`, params);
+            return { status: false, msg: 'request_failed' };
+        }
+    }
+
+    // Method to upload a media file from buffer and make it public
+    uploadMediaFile = async (file, file_path) => {
+        try {
+            const { buffer }    = file;
+            const blob          = this.bucket.file(file_path);
+            const blob_stream   = blob.createWriteStream({ resumable: false });
+
+            const upload_public_url = await new Promise((resolve, reject) => {
+                blob_stream.on('finish', async () => {
+                    const public_url = `https://storage.googleapis.com/${this.bucket.name}/${blob.name}`;
+                    try {
+                        await blob.makePublic();
+                        resolve(public_url);
+                    } catch (error) {
+                        this.logger.error(`Error in uploadMediaFile: ${error}`);
+                        reject(null);
+                    }
+                }).on('error', (err) => {
+                    console.log(`Unable to upload image, error: ${err}`);
+                    reject(null);
+                }).end(buffer);
+            });
+
+            return upload_public_url ? { status: true, msg: 'request_to_upload_file_sucessful', data: upload_public_url } : { status: false, msg: 'invalid_request_file_not_uploaded' };
+
+        } 
+        catch (error) {
+            const params = { file, file_path, error };
+            this.logger.error(`${this.name} - uploadMediaFile`, params);
+            return { status: false, msg: 'request_failed' };
+        }
+    }
+
+    // Method to download a file
+    downloadFile = async (src_path, dest_path) => {
+        try {
+            const file      = this.bucket.file(src_path);
+            const [exists]  = await file.exists();
+        
+            if (!exists) {
+                console.warn(`⚠️ File does not exist in GCS: ${src_path}`);
+                return false;
+            }
+
+            const options = { destination: dest_path };
+            await file.download(options);
+            console.log(`✅ Downloaded ${src_path} to ${dest_path}`);
+
+            return { status: true, msg: 'request_to_download_file_sucessful' };
+        }
+        catch (error) {
+            const params = { src_path, dest_path, error };
+            this.logger.error(`${this.name} - downloadFile`, params);
+            return { status: false, msg: 'request_failed' };
+        }
+    }
+
+    // Method to list all files in bucket
+    listFiles = async (prefix = '') =>  {
+        try {
+            const [files] = await this.bucket.getFiles({ prefix });
+            const file_names = files.map(file => file.name);
+
+            return { status: true, msg: 'request_to_fetch_bucket_files', data: file_names };
+        }
+        catch (error) {
+            const params = { prefix, error };
+            this.logger.error(`${this.name} - listFiles`, params);
+            return { status: false, msg: 'request_failed' };
+        }
+    }
+
+    // Method to download all files
+    downloadAllFiles = async (prefix, local_dir) => {
+        try {
+            const { status, msg, data: files } = await this.listFiles(prefix);
+
+            if(!status) { return { status, msg} }
+
+            for (const file of files) {
+                const local_path = path.join(local_dir, path.basename(file));
+                await this.downloadFile(file, local_path);
+            }
+
+            return { status: true, msg: 'request_to_download_file_sucessful' };
+        }
+        catch (error) {
+            const params = { prefix, local_dir, error };
+            this.logger.error(`${this.name} - downloadAllFiles`, params);
+            return { status: false, msg: 'request_failed' };
+        }
+    }
+
+    // method to download migration files
+    downloadSpecificFiles = async (gcs_dir_prefix, file_prefix, local_dest_dir) => {
+        try {
+            const { status, msg, data: files }  = await this.listFiles(gcs_dir_prefix);
+
+            if(!status) { return { status, msg} }
+
+            const matching_files  = files.filter(f => f.startsWith(`${gcs_dir_prefix}/${file_prefix}_`));
+    
+            if (matching_files.length === 0) {
+                console.log(`ℹ️ No specific files found for prefix '${file_prefix}' in '${gcs_dir_prefix}'`);
+                return { status: false, msg: 'request_failed_no_natching_files' };
+            }
+    
+            for (const file of matching_files) {
+                const local_path    = path.join(local_dest_dir, path.basename(file));
+                await this.downloadFile(file, local_path);
+            }
+    
+            console.log(`✅ Downloaded ${matching_files.length} specific file(s) for '${file_prefix}'`);
+            return { status: true, msg: 'request_to_download_file_sucessful' };
+
+        } 
+        catch (error) {
+            const params = { gcs_dir_prefix, file_prefix, local_dest_dir, error };
+            this.logger.error(`${this.name} - downloadSpecificFiles`, params);
+            return { status: false, msg: 'request_failed' };
+        }
+    };
+
+    // Method to delete a file from the bucket
+    deleteFile = async (file_path) => {
+        try {
+            await this.bucket.file(file_path).delete();
+            console.log(`🗑️ Deleted ${this.bucket_name}/${file_path} from GCS`);
+            return { status: true, msg: 'request_to_delete_file_sucessful' };
+        } 
+        catch (error) {
+            const params = { file_path, error };
+            this.logger.error(`${this.name} - deleteFile`, params);
+            return { status: false, msg: 'request_failed' };
+        }
+    }
+
+    // Method to delete a media file using full URL
+    deleteMediaFile = async (file_url) => {
+        try {
+            const { bucket_name, file_path } = this.#parseGCSUrl(file_url);
+
+            if (bucket_name !== this.bucket.name) {
+                return { status: false, msg: 'invalid_request_file_not_found' };
+            }
+
+            await this.bucket.file(file_path).delete();
+
+            console.log(`Deleted File ${file_path} successfully`);
+            return { status: true, msg: 'request_to_delete_file_sucessful' };
+        } catch (error) {
+            const params = { file_url, error };
+            this.logger.error(`${this.name} - deleteMediaFile`, params);
+            return { status: false, msg: 'request_failed' };
+        }
+    }
+
+    // Helper to delete all files and subfolders in a directory
+    clearLocalDirectory = (dir_path) => {
+        try {
+            if (fs.existsSync(dir_path)) {
+                fs.readdirSync(dir_path).forEach(file => {
+                    const full_path = path.join(dir_path, file);
+                    if (fs.lstatSync(full_path).isDirectory()) {
+                        this.clearDirectory(full_path); // Recursively clear subdirectories
+                        fs.rmdirSync(full_path);
+                    } 
+                    else {
+                        fs.unlinkSync(full_path); // Delete file
+                    }
+                });
+
+                return { status: true, msg: 'request_to_clear_local_directory' };
+            }
+        }
+        catch (error) {
+            const params = { dir_path, error };
+            this.logger.error(`${this.name} - clearLocalDirectory`, params);
+            return { status: false, msg: 'request_failed' };
+        }
+    }
+
+    // Method to check if a file exists using URL
+    fileExists = async (file_url) => {
+        try {
+            const { bucket_name, file_path } = this.#parseGCSUrl(file_url);
+
+            if (bucket_name !== this.bucket.name) {
+                return { status: false, msg: 'invalid_request_file_not_found' };
+            }
+
+            const [exists] = await this.bucket.file(file_path).exists();
+            return exists ? { status: true, msg: 'request_to_check_file_exist' } : { status: false, msg: 'invalid_request_file_not_found' };
+        } catch (error) {
+            const params = { file_url, error };
+            this.logger.error(`${this.name} - fileExists`, params);
+            return { status: false, msg: 'request_failed' };
+        }
+    }
+
+    // Method to append JSON data to a file in GCS
+    appendJsonToCloudFile = async (file_path, data_batch) => {
+        try {
+            const file      = this.bucket.file(file_path);
+            const [exists]  = await file.exists();
+
+            let existing_data = [];
+
+            if (exists) {
+                const [contents] = await file.download();
+                existing_data   = JSON.parse(contents.toString());
+            }
+
+            const updated_data = [...existing_data, ...data_batch];
+
+            await file.save(JSON.stringify(updated_data, null, 2), { resumable: false, contentType: 'application/json' });
+
+            const file_url = `https://storage.googleapis.com/${this.bucket.name}/${file.name}`;
+            return { status: true, msg: 'data_appended_successfully', data: { file_url } };
+        } catch (error) {
+            const params = { file_path, data_batch, error };
+            this.logger.error(`${this.name} - appendJsonToCloudFile`, params);
+            return { status: false, msg: 'append_failed' };
+        }
+    }
+
+}
+
+module.exports = GCSUtil;

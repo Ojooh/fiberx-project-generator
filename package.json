@@ -1,0 +1,42 @@
+{
+  "name": "fiberx-project-generator",
+  "version": "0.0.7",
+  "description": "fiberx-project-generator is a simple CLI tool to scaffold starter templates for your projects. It helps you quickly set up consistent boilerplate for fiberx applications:",
+  "bin": {
+    "fiberx_project_generator": "./bin/fiberx_project_generator.js"
+  },
+  "scripts": {
+    "start": "node ./bin/fiberx_project_generator.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ojooh/fiberx-project-generator.git"
+  },
+  "keywords": [
+    "project-generator",
+    "scaffolding",
+    "cli",
+    "template",
+    "starter",
+    "boilerplate",
+    "web-server",
+    "web-client",
+    "background-processor",
+    "fiberx",
+    "nodejs",
+    "javascript",
+    "project-setup",
+    "code-generator"
+  ],
+  "author": "FiberX Innovations",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Ojooh/fiberx-project-generator/issues"
+  },
+  "homepage": "https://github.com/Ojooh/fiberx-project-generator#readme",
+  "dependencies": {
+    "ejs": "^3.1.10",
+    "inquirer": "^12.6.0"
+  }
+}

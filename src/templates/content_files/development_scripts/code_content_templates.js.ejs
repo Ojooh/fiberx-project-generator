@@ -1,0 +1,159 @@
+const router_template_code = `
+
+const express                           = require('express');
+
+const PermissionVerifierUtil            = require("../../utils/permission_verifier_util");
+const {class_name}Controller            = require('../controllers/{file_name}_controller.js');
+
+
+class {class_name}Router {
+    constructor(database_models, helper_util, authenticator_middle_ware, activity_service_util) {
+        this.router             = express.Router();
+         this.authenticator     = authenticator_middle_ware;
+
+        this.permission_verifier    = new PermissionVerifierUtil(this.helper);
+        this.controller             = new {class_name}Controller(database_models, helper_util, activity_service_util);
+       
+
+        // Initialize routes
+        this.initializeRoutes();
+    }
+
+    initializeRoutes = () => {
+
+        // routes without authentication
+        this.router.use(this.authenticator.authenticateRequest);
+
+        this.router.get('/', this.permission_verifier.hasPermission("permission_name"), this.controller.sampleController);
+    }
+
+    getRoutes = () => { return this.router; }
+}
+
+module.exports = {class_name}Router
+`
+
+const controller_template_code = `
+const LoggerUtil                        = require("../../utils/logger_util");
+
+const {class_name}Service               = require("../modules/{file_name}/{file_name}_service");
+
+class {class_name}Controller {
+    constructor(database_models, helper_util, activity_service_util) {
+        this.name                   = "{file_name}_controller";
+
+        this.database_models        = database_models;
+        this.helper                 = helper_util;
+        this.activity_service       = activity_service_util;
+
+        this.logger                 = new LoggerUtil(this.name, this.helper?.ENV);
+        this.permission_verifier    = new PermissionVerifierUtil(this.helper);
+
+        this.service                = new {class_name}Service(database_models, helper);
+    }
+
+    // sample controller code
+    sampleController = async (req, res) => {
+        try {
+
+        }
+        catch (error) {
+            this.logger.error(\`\${this.name} - sampleController\`, { error });
+            return res.errResponse(500, 'invalid_error_request');
+        }
+    }
+}
+
+module.exports = {class_name}Controller;
+
+`;
+
+const query_filter_template_code = `
+const LoggerUtil                = require("../../utils/logger_util");
+
+class {class_name}QueryFilter {
+    constructor(database_models, helper_util) {
+        this.name                   = "{file_name}_query_filter";
+        this.database_models        = database_models;
+        this.helper                 = helper;
+
+        this.logger                 = new LoggerUtil(this.name, this.helper?.ENV);
+
+        this.{file_name}s_attr      = [];
+
+    }
+}
+
+module.exports = {class_name}QueryFilter;
+`;
+
+const validator_template_code = `
+const LoggerUtil                    = require("../../utils/logger_util");
+
+class {class_name}Validator {
+    constructor(database_models, helper, query_filter) {
+        this.name                           = "{file_name}_validator";
+        this.database_models                = database_models;
+        this.helper                         = helper;
+        this.query_filter                   = query_filter;
+        this.cache_manager                  = cache_manager;
+
+        this.logger                         = new LoggerUtil(this.name, this.helper?.ENV);
+    }
+
+}
+
+module.exports = {class_name}Validator;
+`;
+
+const service_template_code = `
+const LoggerUtil                        = require("../../utils/logger_util");
+const {class_name}QueryFilter           = require("./{file_name}_query_filter");
+const {class_name}Validator             = require("./{file_name}_validator");
+
+class {class_name}Service {
+    constructor(database_models, helper_util) {
+        this.name                       = "{file_name}_service";
+        this.database_models            = database_models;
+        this.helper                     = helper;
+
+        this.logger                     = new LoggerUtil(this.name, this.helper?.ENV);
+        this.query_filter               = new {class_name}QueryFilter(database_models, helper_util);
+        this.validator                  = new {class_name}Validator(database_models, helper_util, this.query_filter);
+    }
+
+}
+
+module.exports = {class_name}Service;
+`;
+
+const seeder_template_code = `
+
+class {class_name}Seeder {
+	constructor(env_varables, helper_util) {
+		this.ENV                = env_varables;
+		this.helper             = helper_util;
+		this.model 				= "{class_name}"
+	}
+
+	// method to get seed data array
+	getModelSeedData = () => {
+		return [
+            {seed_data};
+        ];
+	}
+}
+
+module.exports = {class_name}Seeder;
+
+`;
+
+module.exports = {
+    router_template_code,
+    controller_template_code,
+    query_filter_template_code,
+    validator_template_code,
+    service_template_code,
+    seeder_template_code
+    
+}

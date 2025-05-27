@@ -1,0 +1,98 @@
+const fs                            = require('fs');
+const path                          = require('path');
+
+const DeviceFingerprintUtil         = require("./device_fingerprint_util.js")
+const EncryptorDecryptorUtil        = require("./encryptor_decryptor_util");
+const GCSUtil                       = require("./gcs_util.js");
+const GlobalVariableManager         = require("./global_variable_manager_util.js");
+const InputTransformerUtil          = require("./input_transformer_util.js");
+const InputValidatorUtil            = require("./input_validation_util.js");
+const UUIDGeneratorUtil             = require("./uuid_gen_util.js");
+
+
+class HelperUtil {
+    constructor(env_variables = {}) {
+        // Initialize all utils
+        this.global_vars                    = GlobalVariableManager.getInstance();
+        this.ENV                            = env_variables;
+
+        this.device_fingerprint_util        = new DeviceFingerprintUtil();
+        this.encrypt_decrypt_util           = this.setEncryptorDecryptorUtil();
+        this.input_transformer_util         = new InputTransformerUtil(this.ENV);
+        this.input_validator_util           = new InputValidatorUtil(this.ENV); 
+        this.uuid_generator_util            = new UUIDGeneratorUtil();
+        this.gcs_util                       = this.ENV?.GCS_UTIL || null;  
+    }
+
+    // Method to initialize the EncryptorDecryptorUtil with environment configuration
+    setEncryptorDecryptorUtil = () => {
+        const encryption_key = this.ENV?.ENCRYPTION_KEY || EncryptorDecryptorUtil.generateEncryptionV1Key();
+
+        return new EncryptorDecryptorUtil(this.ENV, encryption_key);
+    }
+
+    // Method to read gcs data into global variables
+    getGCSCredentials = () => {
+        try {
+            let gcs_config = this.global_vars.getVariable("GCS_CONFIG");
+
+            if (gcs_config) { return gcs_config; }
+
+
+            const base_dir              = process.cwd();
+            const gcs_config_path       = path.join(base_dir, "configs", "gcs_config.json");
+
+            if (!fs.existsSync(gcs_config_path)) {
+                console.error(`❌ GCS Config file NOT found at: ${gcs_config_path}`);
+                return null
+            }
+
+            const gcs_config_content    = fs.readFileSync(gcs_config_path, "utf8");
+            gcs_config                  = JSON.parse(gcs_config_content);
+
+            this.global_vars.setVariable("GCS_CONFIG", gcs_config);
+            return gcs_config;
+
+        } 
+        catch (error) {
+            console.error(`${this.name} - getGCSCredentials`, {error });
+            return null;
+        }
+    };
+
+    // Method to get gcs credentials
+    getGCSUtil = (project_id) => {
+        const gcs_credentials = this.getGCSCredentials() || {}
+
+        if(!gcs_credentials || !gcs_credentials[project_id]) { 
+            throw new Error(`GCS credentials not found for project ID: ${project_id}`);
+        }
+
+        const credentials       = gcs_credentials[project_id] || {};
+        const { bucket_name }   = credentials;
+
+        return new GCSUtil(project_id, credentials, bucket_name, this);
+    }
+
+    // Delayed execution for a specified number of seconds
+    sleep = (secs) => new Promise(resolve => setTimeout(resolve, secs * 1000));
+
+    // Method to calculate pagination offset and limit
+    calculatePaginationOffset = (page, size) => {
+        const adjusted_size = size > 200 ? 200 : size;
+        const limit = adjusted_size ? +adjusted_size : 10;
+        const offset = page ? page * limit : 0;
+        return { limit, offset };
+    };
+
+    // Method to format paginated data into a standard structure
+    formatPaginatedResponse = (data, page, limit) => {
+        const { count: totalItems, rows: records } = data;
+        const currentPage = page ? +page : 0;
+        const totalPages = Math.ceil(totalItems / limit);
+        return { totalItems, records, totalPages, currentPage };
+    };
+
+}
+
+module.exports = HelperUtil;

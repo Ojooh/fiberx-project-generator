@@ -1,0 +1,8 @@
+node_modules/
+node_modules
+env.yaml
+env_ample.yaml
+logs/
+local_uploads/
+
+configs/

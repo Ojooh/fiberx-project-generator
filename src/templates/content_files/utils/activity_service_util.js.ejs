@@ -1,0 +1,40 @@
+const LoggerUtil    = require("./logger_util");
+
+class ActivityServiceUtil {
+    constructor(database_models, helper_util) {
+        this.name           = "activity_service_util";
+        this.database       = database_models;
+        this.helper         = helper_util;
+        this.ENV            = this.helper.ENV
+
+        this.logger         = new LoggerUtil(this.name, this.ENV);
+
+        this.member_log     = database_models?.MemberActivityHistory;
+    }
+
+    recordMemberActivity = async (description, permission_name, member, other_info = {}) => {
+        try {
+            //destructure membe r to get id or public_id
+            const { id: member_id, public_id: member_public_id } = member;
+
+            const other_info_string = JSON.stringify(other_info);
+
+            // create activity object
+            const activity = { description, permission_name, table, member_id, member_public_id, other_info: other_info_string };
+
+
+            //save to databse
+            if (this.helper.isProduction() || this.ENV.ACTIVITY_TABLE_LOG == "ON") {
+                await this.member_log.create(activity);
+            }
+        }
+        catch (error) {
+            // Log the error with method-specific details
+            const params = { description, permission_name, member, other_info }; // Empty params as placeholder
+            this.logger.error(`${this.name} - recordMemberActivity`, params);
+            return null;
+        }
+    }
+}
+
+module.exports = ActivityServiceUtil

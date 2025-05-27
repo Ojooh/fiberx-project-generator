@@ -1,0 +1,91 @@
+const fs                = require('fs');
+const path              = require('path');
+const EnvManagerUtil    = require("../utils/env_manager_util");
+const {
+    router_template_code,
+    controller_template_code,
+    query_filter_template_code,
+    validator_template_code,
+    service_template_code
+
+} = require("./code_content_templates")
+
+class CreateNewModule {
+    constructor() {
+        this.ENV                    = new EnvManagerUtil().env_data;
+        this.base_dir               = process.cwd();
+        this.api_root_dir           = path.join(this.base_dir, "api_v1");
+        this.mode                   = this.ENV?.MODE;
+    }
+
+    // ✅ Check if a string is in lowercase snake_case format
+    isLowerSnakeCase = (str) => { return /^[a-z]+(_[a-z]+)*$/.test(str); }
+
+    // 🔠 Convert snake_case to "Title Case"
+    snakeToTitleCase = (str) => { return str.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '); }
+
+    // 🐫 Convert snake_case to PascalCase
+    toPascalCase = (str) => { return str.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(''); }
+
+
+    // 🔁 Replace placeholders in a template
+    replacePlaceholders = (template, values) => {
+        return Object.keys(values).reduce(
+            (result, key) => result.replaceAll(`{${key}}`, values[key]),
+            template
+        );
+    };
+
+    // 🛠️ Main method to generate module files
+    generateModuleFiles = (name) => {
+        if (!name || !this.isLowerSnakeCase(name)) {
+            console.error(`❌ Error: You must provide a name in snake_case format (e.g., item_category)`);
+            process.exit(1);
+        }
+
+        if (this.mode !== 'development') {
+            console.error(`⚠️ Error: This script can only be run in development mode.`);
+            process.exit(1);
+        }
+
+        const file_name         = name;
+        const class_name        = this.toPascalCase(name);
+        const english_name      = this.snakeToTitleCase(name);
+        const template_keys     = { class_name, file_name, english_name };
+        const router_path       = path.join(this.api_root_dir, "routes", `${file_name}_router.js`);
+        const controller_path   = path.join(this.api_root_dir, "controllers", `${file_name}_controller.js`);
+        const query_filter_path = path.join(this.base_dir, "modules", name, `${file_name}_query_filter.js`);
+        const validator_path    = path.join(this.base_dir, "modules", name, `${file_name}_validator.js`);
+        const service_path      = path.join(this.base_dir, "modules", name, `${file_name}_service.js`);
+        
+        const file_array = [
+            { file_path: router_path, content: this.replacePlaceholders(router_template_code, template_keys) },
+
+            { file_path: controller_path, content: this.replacePlaceholders(controller_template_code, template_keys) },
+
+            { file_path: query_filter_path, content: this.replacePlaceholders(query_filter_template_code, template_keys) },
+
+            { file_path: validator_path, content: this.replacePlaceholders(validator_template_code, template_keys) },
+
+            { file_path: service_path, content: this.replacePlaceholders(service_template_code, template_keys) },
+        ];
+
+        file_array.forEach(({ file_path, content }) => {
+            fs.mkdirSync(path.dirname(file_path), { recursive: true });
+
+            if (!fs.existsSync(file_path)) {
+                fs.writeFileSync(file_path, content.trim());
+                console.log(`✅ Created: ${file_path}`);
+            } else {
+                console.log(`⚠️ Skipped: ${file_path} already exists.`);
+            }
+        });
+
+        console.log(`🎉 Module "${file_name}" generated successfully.`);
+    };
+}
+
+// ▶️ Run the script with argument
+const create_new_module = new CreateNewModule();
+const name = process.argv[2];
+create_new_module.generateModuleFiles(name);

@@ -1,0 +1,19 @@
+MODE: development
+APP_NAME: your-app-name
+APP_ID: your-app-name
+APP_PORT: 3000
+APP_PUBLIC_KEY: 
+
+STORE_LOG: YES
+ACTIVITY_TABLE_LOG: ON
+
+DATA_SHIFT_LIVE: 8
+DATA_SHIFT_TEST: 9
+JSON_WEB_TOKEN_KEY: FIBERXINNOVALTS1234545
+
+RECAPTCHA_SECRET_KEY_LIVE:
+RECAPTCHA_SECRET_KEY_TEST:
+RECPATHA_VERIFY_URL_TEST: https://www.google.com/recaptcha/api/siteverify
+RECPATHA_VERIFY_URL_LIVE: https://www.google.com/recaptcha/api/siteverify
+
+

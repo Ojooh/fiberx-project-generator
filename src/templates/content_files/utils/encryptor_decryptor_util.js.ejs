@@ -1,0 +1,151 @@
+const crypto = require("crypto");
+
+class EncryptorDecryptorUtil {
+	constructor(env_variables, encryption_key) {
+		const mode              = env_variables?.MODE;
+		this.is_live_mode       = mode === 'production' || mode === 'staging';
+		this.data_shift_key     = this.is_live_mode ? parseInt(env_variables?.DATA_SHIFT_LIVE) : parseInt(env_variables?.DATA_SHIFT_TEST) || 4;
+		this.corpus             = this.is_live_mode ? this.#generateRandomCorpus() : this.#getFixedCorpus();
+		this.encryption_key     = encryption_key;
+		this.algorithm          = "aes-256-cbc";
+		this.iv_length          = 16;
+		this.json_web_token 	= this.ENV?.JSON_WEB_TOKEN_KEY
+
+		this.setEncryptionV1Key(encryption_key);
+	}
+
+    // Method to get fixed corpus
+    #getFixedCorpus = () => {
+		const corpus = [
+			'6', ';', 's', '[', 'w', '*', 'n', 'K', 'h', 'U', '#', 'P', 'T', '&',
+			'M', '2', '}', 'x', ')', '{', '|', 'i', '%', 'm', ':', 'E', 'q', '?', '0',
+			'@', '1', 'v', 'A', 'W', '<', 'y', 'Y', '4', '5', '.', 'e', 'G', ',',
+			'D', '7', 'I', 'j', '>', 'g', 't', 'k', 'c', 'V', '9', 'J', 'L', 'u',
+			'H', 'b', 'Z', '+', '"', "'", 'a', 'f'
+		];
+
+		return [...new Set(corpus)];
+	}
+
+    // Method to get random corpus
+    #generateRandomCorpus = (size = 60) => {
+		const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+[]{}:;<>,.?/|\\";
+		const corpusSet = new Set();
+
+		while (corpusSet.size < size) {
+			const random_char = characters[Math.floor(Math.random() * characters.length)];
+			corpusSet.add(random_char);
+		}
+
+		return Array.from(corpusSet).sort(() => Math.random() - 0.5);
+	}
+
+    // Method to generate encryption key v1
+	static generateEncryptionV1Key = () => { return crypto.randomBytes(32).toString("hex"); }
+
+    // Method to set encryption key v1
+	setEncryptionV1Key = (key) => {
+		if (Buffer.from(key, "hex").length !== 32) {
+			throw new Error("Invalid encryption key length. Expected 32 bytes (64 hex characters).");
+		}
+		this.encryption_key = key;
+	}
+
+    // Method to encrypt data v1
+	encryptV1 = (data) => {
+		if (!this.encryption_key) {
+			throw new Error("Encryption key not set. Use setEncryptionV1Key() first.");
+		}
+
+		const iv            = crypto.randomBytes(this.iv_length);
+		const iv_base_64    = iv.toString("base64");
+		const cipher        = crypto.createCipheriv(this.algorithm, Buffer.from(this.encryption_key, "hex"), iv);
+		const json_data     = JSON.stringify(data);
+		let encrypted       = cipher.update(json_data, "utf-8", "base64");
+		encrypted           += cipher.final("base64");
+
+		return `${iv_base_64}:${encrypted}`;
+	}
+
+    // Method to decrypt data with encryption of v1
+	decryptV1 = (encrypted_data) => {
+		if (!this.encryption_key) {
+			throw new Error("Encryption key not set. Use setEncryptionV1Key() first.");
+		}
+
+		const [iv_base_64, encrypted]   = encrypted_data.split(":");
+		const iv                        = Buffer.from(iv_base_64, "base64");
+		const decipher                  = crypto.createDecipheriv(this.algorithm, Buffer.from(this.encryption_key, "hex"), iv);
+		let decrypted                   = decipher.update(encrypted, "base64", "utf-8");
+		decrypted                       += decipher.final("utf-8");
+
+		return JSON.parse(decrypted);
+	}
+
+    // Method to encrypt data v2
+	encryptV2 = (data) => {
+		if (!this.corpus || !this.data_shift_key) {
+			throw new Error('Environment not initialized. Call initEnv() first.');
+		}
+
+		const input_data        = typeof data === 'string' ? data : JSON.stringify(data);
+		const encrypted_data    = input_data.split('').map(char => {
+		    const index             = this.corpus.indexOf(char);
+
+			if (index !== -1) {
+				const new_index = (index + this.data_shift_key) % this.corpus.length;
+				return this.corpus[new_index];
+			}
+
+			return char;
+		}).join('');
+
+		return { encrypted_data };
+	}
+
+    // Method to decrypt data encrypted on v2
+	decryptV2 = (encrypted_data) => {
+		if (!this.corpus || !this.data_shift_key) {
+			throw new Error('Environment not initialized. Call initEnv() first.');
+		}
+
+		const decrypted_data = encrypted_data.split('').map(char => {
+			const index = this.corpus.indexOf(char);
+
+			if (index !== -1) {
+				let new_index = index - this.data_shift_key;
+				if (new_index < 0) {
+					new_index = this.corpus.length + new_index;
+				}
+				return this.corpus[new_index];
+			}
+			return char;
+		}).join('');
+
+		try  { return JSON.parse(decrypted_data);  }
+        
+        catch(error) { return decrypted_data; }
+	}	
+
+
+	// Method to convert data object to encrypted time string
+    timedDataToEncryptedString = (data, time) => {
+        const encoded_data = this.encryptV2(data)
+
+        return jwt.sign({ encoded_data }, this.json_web_token, { expiresIn: time * 60 });
+    }
+
+	// Method to convert timed encrypted string to decrypted data
+	encryptedStringToData = (encrypted_string) => {
+		try {
+            const jwt_data      = jwt.verify(encrypted_string, this.json_web_token);
+            const decoded_data  = this.decryptV2(jwt_data?.encoded_data)
+            return decoded_data || false;
+		}
+		catch (error) {
+			return false
+		}
+	}
+}
+
+module.exports = EncryptorDecryptorUtil;

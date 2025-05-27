@@ -1,0 +1,103 @@
+const fs                    = require("fs");
+const path                  = require('path');
+const FiberXDBMS            = require("fiberx-dbms");
+
+const LoggerUtil            = require("./logger_util");
+const DataSourceService     = require("../modules/data_source/data_source_service");
+const SchemaRegistryService = require("../modules/schema_registry/schema_registry_service");
+
+class DatabaseManagerUtil {
+    constructor(env_variables, helper_util) {
+        this.name                       = "database_manager_util";
+        this.ENV                        = env_variables;
+        this.helper                     = helper_util;
+        this.app_id                     = this.ENV?.APP_ID;
+        this.app_public_key             = this.ENV?.APP_PUBLIC_KEY;
+        this.base_dir                   = process.cwd();
+        this.models_dir                 = path.join(this.base_dir, "database",  "models");
+
+        this.logger                     = new LoggerUtil(this.name, this.ENV);
+        this.fiberx_dbms                = new FiberXDBMS(this.app_id, this.app_public_key, null, this.logger);
+        this.data_source_service        = new DataSourceService(helper_util);
+        this.schema_registry_service    = new SchemaRegistryService(helper_util);
+    }
+
+    // method to get schemas and data sources
+    #getSchemasAndDataSources = async () => {
+        try {
+            const { status, message, data } = await this.schema_registry_service.getSchemaRegistries({ app_id: this.app_id });
+
+            if(!status) {
+                this.logger.error("Error in getSchemasAndDataSources: ", message);
+                throw new Error(message);
+            }
+
+            const { schemas, data_sources } = data;
+        
+            return { schemas, data_sources };
+        } catch (error) {
+            this.logger.error("Error in getSchemasAndDataSources: ", error);
+            throw error;
+        }
+    }
+
+    // Method to load models
+    #getModels = () => {
+        const model_instances   = {};
+        const files             = fs.readdirSync(this.models_dir);
+
+        for (const file of files) {
+            const ext = path.extname(file);
+    
+            if (ext !== ".js"|| file == "index.js" ) { continue; }
+    
+            const model_path    = path.join(this.models_dir, file);
+            const ModelClass    = require(model_path);
+    
+            if (typeof ModelClass !== "function") { continue; }
+
+            if (ModelClass.name === "BaseModel") { continue; }
+    
+            const class_name    = ModelClass.name;
+            const instance      = new ModelClass();
+    
+            model_instances[class_name] = instance;
+        }
+  
+        return model_instances;
+
+    }
+
+    // Method to get data source 
+    getRegistredDataSource = (datasource_type) => {
+        return this.fiberx_dbms.getRegistredDataSource(datasource_type);
+    }
+
+    // Method to initialize fiberx-dbms
+    initializeDBMS = async (db_configs = {}) => {
+        try {
+            const { set_up = true, return_models =  true } = db_configs;
+            const {  schemas: schema_files,  data_sources: datasources }  = await this.#getSchemasAndDataSources();
+            const migration_files   = []
+            const parsed_db_configs       = { ...db_configs, datasources, schema_files, migration_files };
+            // console.log({ api_data: JSON.stringify(api_data) });
+
+            const initialized       = await this.fiberx_dbms.initializeDBMS(parsed_db_configs);
+
+            if(!initialized) {
+                throw new Error("DBMS was not initialzed something went wrong");
+            }
+
+            return return_models ? this.#getModels(): true
+
+        }
+        catch(error) {
+            const params = { error };
+            this.logger.error(`${this.name} - initializeDBMS`, params);
+            return false
+        }
+    }
+
+}
+
+module.exports = DatabaseManagerUtil;
