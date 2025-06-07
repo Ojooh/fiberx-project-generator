@@ -4,7 +4,7 @@ const express                       = require("express");
 const path                          = require("path");
 const cookie_parser                 = require("cookie-parser");
 <% if (requires_file_upload_download) { %>
-  const file_upload                 = require("express-fileupload");
+const file_upload                 = require("express-fileupload");
 <% } %>
 const body_parser                   = require("body-parser");
 const request_ip                    = require("request-ip");
@@ -13,11 +13,11 @@ const socket_io                     = require("socket.io");
 const EnvManagerUtil                = require("./utils/env_manager_util");
 const HelperUtil                    = require("./utils/index_util");
 const AppInitializerUtil            = require("./utils/app_initializer_util");
-const SocketManagerUtil             = require("./utils/socket_manager_util");
 const DatabaseManagerUtil           = require("./utils/database_manager_util");
+// const SocketManagerUtil             = require("./utils/socket_manager_util");
 const ResponderMiddleWare           = require("./middle_wares/responder_middle_ware");
 const CORSManagerMiddleWare         = require("./middle_wares/cors_manager_middle_ware");
-const DatabaseManager               = require("./models/index");
+const CookieManagerMiddleWare       = require("./middle_wares/cookie_manager_middle_ware");
 const RouteManager                  = require("./api_v1/routes/index");
 
 
@@ -25,7 +25,7 @@ const RouteManager                  = require("./api_v1/routes/index");
 
 // Main Application Class
 class Application {
-  constructor() {
+	constructor() {
 		this.app              		= express();
   		this.database_models        = {};
     	this.io               		= null;
@@ -36,16 +36,17 @@ class Application {
 
 		this.helper.global_vars.setVariable("ENV", this.ENV)
 
-		this.database 				= new DatabaseManagerUtil(this.ENV);
+		this.database_manager 		= new DatabaseManagerUtil(this.ENV, this.helper);
 		this.cors_manager     		= new CORSManagerMiddleWare(this.ENV);
     	this.responder        		= new ResponderMiddleWare(this.ENV);
+		this.cookie_manager   		= new CookieManagerMiddleWare(this.ENV);
 
 		this.server           		= http.Server(this.app);
   	}
 
 	// Async method to initialize the database
 	initializeDatabase = async () => { 
-		this.database_models = await this.database.initializeDBMS();; 
+		this.database_models = await this.database_manager.initializeDBMS();
 	}
 
 	// Async method to initialize app data
@@ -63,20 +64,29 @@ class Application {
 		this.io.on('connection', (socket) => { this.socket_manager.handleConnection(socket); });
 	}
 
-  // Middleware initialization
+  	 // Middleware initialization
 	initializeMiddleware = () => {
 		const limiter       	= this.responder.initialiazeRateLimitter();
 		const cors_blocker  	= this.cors_manager.initializeCORSBlocking();
+		const proxy_value 		= this.ENV?.MODE === "production" || this.ENV?.MODE === "staging" ? 1 : false
 
 		this.app.set('env', this.ENV.MODE);
 		this.app.use(request_ip.mw());
-		this.app.set('trust proxy', true); 
+		this.app.set('trust proxy', proxy_value); 
+
+		this.app.use(limiter);
+		this.app.use(cors_blocker);
+
 		this.app.use(this.cors_manager.forceHttps);
 		this.app.use(this.responder.secureHeaders);
 		this.app.use(this.cors_manager.logOriginData);
-		this.app.use(limiter);
-		this.app.use(cors_blocker);
+
+		this.app.use(cookie_parser());
+		this.app.use(this.cookie_manager.ensureSessionId); 
+
+		
 		this.app.use(this.responder.apiResponseFormatter);
+		this.app.use(this.responder.apiCookieHeaderFormatter);
 
 		// Set render engine
 		this.app.set('views', path.join(__dirname, "api_v1/client/views"));
@@ -87,12 +97,10 @@ class Application {
 		this.app.use(body_parser.urlencoded({ extended: false }));
 		this.app.use(body_parser.json());
 
-		this.app.use(cookie_parser());
 	<% if (requires_file_upload_download) { %>
 		this.app.use(file_upload());
 	<% } %>
-		
-
+	
 		// Serve static files
 		this.app.use(express.static(path.join(__dirname, 'api_v1/client/assets/')));
 		this.app.use(express.static(path.join(__dirname, 'local_uploads/')));
@@ -104,11 +112,11 @@ class Application {
 		//api route
 		this.app.use(this.api_base_url, this.route_manager.getRoutes());
 
-		// Handle admin routes
-		this.app.get('/admin*', (req, res) => { res.render('admin'); });
+		// // Handle admin routes
+		// this.app.get(/^\/admin(?:\/.*)?$/, (req, res) => { res.render('admin'); });
 
-		// Handle all other routes
-		this.app.get('*', (req, res) => { res.render('index'); });
+		// // Handle all other routes
+		// this.app.get(/.*/, (req, res) => { res.render('index'); });
 	}
 
 	// Error handling initialization
@@ -137,11 +145,11 @@ class Application {
 			// After database connection, initialize other parts of the app
 			this.initializeMiddleware();
 
-			this.initializeSocketIO();
+			// this.initializeSocketIO();
 
 			this.initializeRoutes();
 
-			this.initializeErrorHandling();
+			// this.initializeErrorHandling();
 
 			this.app_initializer.runTests();
 

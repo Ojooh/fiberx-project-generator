@@ -11,6 +11,11 @@ class PromptRunner {
         this.prompt         = inquirer.createPromptModule();
     }
 
+    // Method to oonvert to pascal
+    #toPascalCase = (str) => {
+        return str.replace(/[-_\s]+/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
+    }
+
     // Method to run interactive prompts for user input
     runPrompts = async () => {
         this.project_name   = await this.getProjectName();
@@ -71,9 +76,11 @@ class PromptRunner {
         else if (this.project_type === APP_TYPES.BACKGROUND_PROCESSOR) { full_project_name = `${this.project_name}-processor-app` }
 
 
-        const default_repo = `${GITHUB_BASE_URL}${full_project_name}.git`;
+        const default_repo                  = `${GITHUB_BASE_URL}${full_project_name}.git`;
 
-        const responses = await this.prompt([
+        const default_project_live_base_url = `https://${this.project_name.toLowerCase()}.com`;
+
+        const prompt_response_array = [
             {
                 type: "input",
                 name: "version",
@@ -122,9 +129,35 @@ class PromptRunner {
                 default: 3000
             }
             
-        ]);
+        ]
 
-        return { full_project_name, ...responses };
+        if(this.project_type === APP_TYPES.WEB_CLIENT) {
+            prompt_response_array.push(
+                {
+                    type: "input",
+                    name: "project_passphrase",
+                    message: "Enter project passphrase:"
+                },
+            );
+
+            prompt_response_array.push(
+                {
+                    type: "input",
+                    name: "project_live_base_url",
+                    message: "Enter project live base url:",
+                    default: default_project_live_base_url
+                },
+            )
+        }
+
+        const responses = await this.prompt(prompt_response_array);
+
+        return { 
+            full_project_name, 
+            ...responses, 
+            project_name: this.project_name,
+            project_name_pascal: this.#toPascalCase(this.project_name)
+        };
     }
 }
 

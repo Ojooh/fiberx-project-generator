@@ -16,4 +16,9 @@ RECAPTCHA_SECRET_KEY_TEST:
 RECPATHA_VERIFY_URL_TEST: https://www.google.com/recaptcha/api/siteverify
 RECPATHA_VERIFY_URL_LIVE: https://www.google.com/recaptcha/api/siteverify
 
+MAX_LOGIN_ATTEMPTS: 3
+MAX_ACTIVE_SESSIONS: 4
+JWT_ACCESS_SECRET: 
+JWT_REFRESH_SECRET: 
+
 

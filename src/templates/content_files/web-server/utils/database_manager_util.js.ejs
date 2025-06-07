@@ -20,6 +20,42 @@ class DatabaseManagerUtil {
         this.fiberx_dbms                = new FiberXDBMS(this.app_id, this.app_public_key, null, this.logger);
         this.data_source_service        = new DataSourceService(helper_util);
         this.schema_registry_service    = new SchemaRegistryService(helper_util);
+
+        this.modes                      = {};
+    }
+
+    // Method to get data source 
+    getRegistredDataSource = (datasource_type) => {
+        return this.fiberx_dbms.getRegistredDataSource(datasource_type);
+    }
+
+    // Method to initialize fiberx-dbms
+    initializeDBMS = async (db_configs = {}) => {
+        try {
+            const { set_up = true, return_models =  true } = db_configs;
+            const {  schemas: schema_files,  data_sources: datasources }  = await this.#getSchemasAndDataSources();
+            const migration_files   = []
+            const parsed_db_configs       = { ...db_configs, datasources, schema_files, migration_files };
+            // console.log({ api_data: JSON.stringify(api_data) });
+
+            const initialized       = await this.fiberx_dbms.initializeDBMS(parsed_db_configs);
+
+            if(!initialized) {
+                throw new Error("DBMS was not initialzed something went wrong");
+            }
+
+            this.models = this.#getModels();
+
+            this.#registerAssociation();
+
+            return return_models ? this.models : true
+
+        }
+        catch(error) {
+            const params = { error };
+            this.logger.error(`${this.name} - initializeDBMS`, params);
+            return false
+        }
     }
 
     // method to get schemas and data sources
@@ -63,40 +99,28 @@ class DatabaseManagerUtil {
     
             model_instances[class_name] = instance;
         }
-  
+        
+        model_instances[this.class_name] = this;
         return model_instances;
 
     }
 
-    // Method to get data source 
-    getRegistredDataSource = (datasource_type) => {
-        return this.fiberx_dbms.getRegistredDataSource(datasource_type);
+    // Method to register associations
+    #registerAssociation = () => {
+        this.#hasOneAssociations();
+
+        this.#belongsToAssociations();
+
+        this.#hasManyAssociations();
     }
 
-    // Method to initialize fiberx-dbms
-    initializeDBMS = async (db_configs = {}) => {
-        try {
-            const { set_up = true, return_models =  true } = db_configs;
-            const {  schemas: schema_files,  data_sources: datasources }  = await this.#getSchemasAndDataSources();
-            const migration_files   = []
-            const parsed_db_configs       = { ...db_configs, datasources, schema_files, migration_files };
-            // console.log({ api_data: JSON.stringify(api_data) });
+    #hasOneAssociations = () => {}
 
-            const initialized       = await this.fiberx_dbms.initializeDBMS(parsed_db_configs);
+    #belongsToAssociations = () => { }
 
-            if(!initialized) {
-                throw new Error("DBMS was not initialzed something went wrong");
-            }
+    #hasManyAssociations = () => { }
 
-            return return_models ? this.#getModels(): true
-
-        }
-        catch(error) {
-            const params = { error };
-            this.logger.error(`${this.name} - initializeDBMS`, params);
-            return false
-        }
-    }
+    
 
 }
 

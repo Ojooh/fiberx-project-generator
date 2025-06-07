@@ -1,0 +1,332 @@
+const fs                    = require("fs");
+const path                  = require("path");
+const EnvManagerUtil        = require("../utils/env_manager_util");
+const DatabaseManagerUtil   = require("../utils/database_manager_util");
+const HelperUtil            = require("../utils/index_util");
+
+const { seeder_template_code } = require("./code_content_templates");
+
+class SeederManager {
+	constructor() { 
+        this.ENV      				= new EnvManagerUtil()?.env_data;
+		this.helper           		= new HelperUtil(this.ENV);
+        this.database_manager 		= new DatabaseManagerUtil(this.ENV, this.helper);
+        
+        this.input_transformer_util = this.helper?.input_transformer_util;
+        this.base_dir               = process.cwd();
+        this.seeder_root_dir        = path.join(this.base_dir, "database", "seeders");
+        this.database_models        = {};
+
+        this.helper.global_vars.setVariable("ENV", this.ENV)
+        this.#ensureDirectoryExist(this.seeder_root_dir);
+    }
+
+
+    // method create backup directory if does not exist
+    #ensureDirectoryExist = (directory_path) => {
+        if (!fs.existsSync(directory_path)) {
+            fs.mkdirSync(directory_path, { recursive: true });
+        }
+    }
+
+    // Async method to initialize the database
+	#initializeDatabaseAsModels = async () => { 
+        const db_configs        = { set_up: false, return_models: true }
+		this.database_models    = await this.database_manager.initializeDBMS(db_configs);
+	}
+
+    // method to extract a model schema and indexes
+    #extractModelState = (model) => {
+        const { migration_priority, columns }  = model?.schema;
+
+        return { schema_fields: Object.keys(columns), migration_priority };
+    };
+
+    // method to generate seeder file name 
+    #generateSeederFilename = (file_name, model_priority = "") => {
+        const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+        return `${model_priority}_${file_name}_${timestamp}_seeder.js`;
+    }
+
+    // method to get a file prefix number (model_priority)
+    #getPrefixNumber = (file) => {
+        const match = file.match(/^(\d+)_/);
+        return match ? parseInt(match[1], 10) : 0;
+    };
+
+    // method to generate schema record object from schema fields
+    #generateSchemaObject = (schema_fields) => {
+        const schema_obj = {};
+
+        if(!Array.isArray(schema_fields) || !schema_fields || !schema_fields.length) {
+            throw new Error(`Invalid schema for ${model_name} schema: ${schema_fields}`);
+        }
+
+        for (const field of schema_fields) { schema_obj[field] = null; }
+
+        return schema_obj;
+    }
+
+    // 🔁 Replace placeholders in a template
+    #replacePlaceholders = (template, values) => {
+        return Object.keys(values).reduce(
+            (result, key) => result.replaceAll(`{${key}}`, values[key]),
+            template
+        );
+    };
+
+    // method to write to seeder file
+    #writeToSeederFile = (file_path, content) => {
+        try {
+            fs.writeFileSync(file_path, content);
+            return true;
+        } catch (error) {
+            console.error(`❌ Error writing ${file_path} data: ${error.message}`);
+            return false;
+        }
+    };
+
+    // method to get seeder files related to a model
+    #getSeederFiles = (file_name = null) => {
+        const all_seeder_files = fs.readdirSync(this.seeder_root_dir);
+    
+        let filtered_files;
+    
+        if (file_name) { filtered_files = all_seeder_files.filter(file => file === file_name); }
+
+        else { filtered_files = all_seeder_files; }
+    
+        return filtered_files.sort((a, b) => this.#getPrefixNumber(a) - this.#getPrefixNumber(b));
+    }
+
+    // method to handle seeding from a file to db
+    #handleSeedFileToDb = async (file_name) => {
+        try {
+            const file_path             = path.join(this.seeder_root_dir, file_name);
+            const SeederClass           = require(file_path);
+            const seeder_instance       = new SeederClass(this.ENV, this.helper);
+            const db_model              = this.database_models[seeder_instance?.model];
+            const seeder_data           = seeder_instance.getModelSeedData();
+
+            if (!db_model) {
+                console.log(`\n❌ Model "${seeder_instance?.model}" not found in DB. Skipping ${file_name} \n`);
+                return false;
+            }
+
+            if(seeder_instance.executed) {
+                console.log(`\n❌ Seeder ${file_name} for Model "${seeder_instance?.model}" has been seeded. Skipping ${file_name}\n`);
+                return false;
+            }
+
+            if(!seeder_data || seeder_data.length <= 0) {
+                console.log(`\n❌ No data to seed in ${file_name} for Model  "${seeder_instance?.model}" Skipping ${file_name} \n`);
+                return false;
+            }
+
+            const seeded = await db_model.bulkCreate(seeder_data, { ignore_duplicates: true });
+
+            if(!seeded || !seeded.length) {
+                console.error(`\n🚫 Error in handleSeedFileToDb for ${file_name}: ${error.message} \n`);
+                return false;
+            }
+
+            console.log(`\n🌱 Seeded ${seeder_data.length} rows to model "${seeder_instance?.model}" from file "${file_name}" \n`);
+        }
+        catch(error) {
+            console.log({ error });
+            console.error(`\n🚫 Error in handleSeedFileToDb for ${file_name}: ${error.message}`);
+            return false;
+        }
+
+        console.log("\n\n---\n\n");
+        return true
+    }
+
+    // Helper method to parse flags
+    #parseFlags = (args) => {
+        const flags = { file_name: null, model_name: null };
+
+        args.slice(1).forEach(arg => {
+            const [key, value] = arg.split('=');
+            flags[key] = value || null;
+        });
+
+        return flags;
+    }
+
+    // method to handle undoing seed from a file to a db
+    #handleUndoSeedFileFromDb = async (file_name) => {
+        try {
+            const file_path             = path.join(this.seeder_root_dir, file_name);
+            const SeederClass           = require(file_path);
+            const seeder_instance       = new SeederClass(this.ENV, this.helper);
+            const db_model              = this.database_models[seeder_instance?.model];
+            const seeder_data           = seeder_instance.getModelSeedData();
+
+            if (!db_model) {
+                console.log(`\n❌ Model "${seeder_instance?.model}" not found in DB. Skipping ${file_name} \n`);
+                return false;
+            }
+
+            if(!seeder_data || seeder_data.length <= 0) {
+                console.log(`\n❌ No data to seed in ${file_name} for Model  "${seeder_instance?.model}" Skipping ${file_name} \n`);
+                return false;
+            }
+
+            for (const [index, row] of seeder_data.entries()) {
+                const pk = Object.keys(row).find(k => ["id", "public_id"].includes(k));
+            
+                if (pk) {
+                    await db_model.destroy({ [pk]: row[pk] });
+                    console.log(`\n🗑️ [${index + 1}/${seeder_data.length}] Deleted row with ${pk} = ${row[pk]} \n`);
+                } else {
+                    console.log(`\n⚠️ [${index + 1}/${seeder_data.length}] Primary key not found in row, skipping... \n`);
+                }
+            }
+
+
+           console.log(`\n🧹 Undone seed for from file "${file_name}" sucessful \n`);
+        }
+        catch(error) {
+            console.log({ error });
+            console.error(`\n🚫 Error in handleUndoSeedFileFromDb for ${file_name}: ${error.message} \n`);
+            return false;
+        }
+
+        console.log("\n\n---\n\n");
+        return true
+    }
+    
+    // method to seed database
+    generateSeedFile = async (file_name, model_name) => {
+        try {
+            await this.#initializeDatabaseAsModels();
+            const database_model    = this.database_models[model_name];
+
+            if(!file_name || !model_name) {
+                console.log("\n❌ Invalid Input for seeder file name or model name. \n");
+                return process.exit(1);
+            }
+
+            if (!this.database_models || !database_model) {
+                console.log("\m❌ Failed to connect to database or no models found. \n");
+                return process.exit(1);
+            }
+
+            console.log("\n✅ Connected! Create seeder file(s).\n");
+
+            const file_name_snake                       = this.input_transformer_util.toSnakeCase(file_name);
+            const file_name_pascal                      = this.input_transformer_util.toPascalCase(file_name);
+            const { migration_priority, schema_fields } = this.#extractModelState(database_model);
+            const seeder_file_name                      = this.#generateSeederFilename(file_name_snake, migration_priority);
+            const model_schema_obj                      = this.#generateSchemaObject(schema_fields);
+            const template_keys                         = { class_name: file_name_pascal, model_name, seed_data: JSON.stringify(model_schema_obj) }
+            const code_content                          = this.#replacePlaceholders(seeder_template_code, template_keys).trim();
+            const file_path                             = path.join(this.seeder_root_dir, seeder_file_name);
+
+            this.#writeToSeederFile(file_path, code_content);
+            console.log(`\n✅ Seeder created for model 📦 "${model_name}" (${file_name_snake}): ${file_path}\n`);
+            return true;
+        }
+        catch (error) {
+            console.error("\n💥 Error seeding to database:", error.message);
+            return process.exit(1);
+        }
+    }
+
+    // Method to execute seed fles
+    executeSeed = async (file_name = null) => {
+        try {
+            await this.#initializeDatabaseAsModels();
+
+            if(file_name && !file_name.includes(".js")) {
+                file_name = `${file_name}.js`;
+            }
+
+            if (!this.database_models ) {
+                console.log("\n❌ Failed to connect to database or no models found. \n");
+                return process.exit(1);
+            }
+
+            console.log("\n✅ Connected! Execute seeder file(s). \n");
+
+            const files = this.#getSeederFiles(file_name);  
+            
+            for (const file of files) { await this.#handleSeedFileToDb(file); }
+
+            return true;
+        }
+        catch (error) {
+            console.error("\n💥 Error seeding to database:", error.message);
+            return process.exit(1);
+        }
+    }
+
+    // method to undo seed
+    undoSeedExecution = async (file_name = null) => {
+        try {
+            await this.#initializeDatabaseAsModels();
+
+            if(file_name && !file_name.includes(".js")) {
+                file_name = `${file_name}.js`;
+            }
+
+            if (!this.database_models) {
+                console.log("\n❌ Failed to connect to database or no models found.\n");
+                return process.exit(1);
+            }
+
+            console.log("\n✅ Connected! Undo Execute seeder file(s).\n");
+
+            const files = this.#getSeederFiles(file_name);   
+
+            for (const file of files.reverse()) { await this.#handleUndoSeedFileFromDb(file) }
+
+            console.log(`\n✅ Undo Seed complete. \n`);
+            return true;
+        }
+        catch (error) {
+            console.error("\n💥 Error undoing seed to database:", error.message);
+            return process.exit(1);
+        }
+    }
+
+    // main method 
+    main = async () => {
+        const args      = process.argv.slice(2);
+        const command   = args[0];
+        const flags     = this.#parseFlags(args.slice(1));
+
+
+        if (this.ENV?.MODE !== "development") {
+            console.error(`⚠️ Error: This script can only be run in development mode.`);
+            process.exit(1);
+        }
+
+        switch (command) {
+            case "create_seeder":
+                await this.generateSeedFile(flags?.file_name, flags?.model_name);
+                return process.exit(0);
+    
+            case "seed":
+                await this.executeSeed(flags?.file_name);
+                return process.exit(0);
+    
+            case "undo_seed":
+                await this.undoSeedExecution(flags?.file_name);
+                return process.exit(0);
+    
+            default:
+                console.log("❌ Invalid command. Use one of: create_seeder, seed --model_name [model_name] --file_name [file], undo_seed --model_name [model_name] --file_name [file] ");
+                return process.exit(1);
+        }
+
+    }
+
+}
+
+module.exports = SeederManager;
+
+// ▶️ Run the script with argument
+const seeder_manager = new SeederManager();
+seeder_manager.main();

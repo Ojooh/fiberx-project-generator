@@ -79,18 +79,18 @@ class HelperUtil {
 
     // Method to calculate pagination offset and limit
     calculatePaginationOffset = (page, size) => {
-        const adjusted_size = size > 200 ? 200 : size;
-        const limit = adjusted_size ? +adjusted_size : 10;
-        const offset = page ? page * limit : 0;
+        const adjusted_size     = size > 200 ? 200 : size;
+        const limit             = adjusted_size ? +adjusted_size : 10;
+        const offset            = page ? page * limit : 0;
         return { limit, offset };
     };
 
     // Method to format paginated data into a standard structure
     formatPaginatedResponse = (data, page, limit) => {
-        const { count: totalItems, rows: records } = data;
-        const currentPage = page ? +page : 0;
-        const totalPages = Math.ceil(totalItems / limit);
-        return { totalItems, records, totalPages, currentPage };
+        const { count: total_items, rows: records } = data;
+        const current_page      = page ? +page : 0;
+        const total_pages       = Math.ceil(total_items / limit);
+        return { total_items, records, total_pages, current_page };
     };
 
 }

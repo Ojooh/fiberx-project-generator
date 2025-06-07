@@ -1,0 +1,75 @@
+class BaseAppController {
+    constructor() {}
+
+    // Public method to expose components
+    getUIComponents = () => {
+        return {};
+    };
+
+    // State data
+    getAppStateData = () => {
+        return () => ({
+            example_state: 'Hello World',
+        });
+    };
+
+    // Computed variables
+    getAppComputedVariables = () => {
+        return {
+            exampleComputed() {
+                return this.example_state + ' - computed';
+            },
+        };
+    };
+
+    // Watchers
+    getAppWatchers = () => {
+        return {
+            example_state(newVal, oldVal) {
+                console.log('State changed:', oldVal, '->', newVal);
+            },
+        };
+    };
+
+    // Lifecycle: created
+    handleOnCreatedLogic = function () {
+        try {
+            console.log('[Created] Component has been created');
+        } catch (error) {
+            console.error('[Created] Error:', error);
+        }
+    };
+
+    // Lifecycle: mounted
+    handleOnMountedLogic = function () {
+        try {
+            console.log('[Mounted] Component has been mounted');
+        } catch (error) {
+            console.error('[Mounted] Error:', error);
+        }
+    };
+
+    // Lifecycle: beforeUnmount
+    handleBeforeUnmountedLogic = function () {
+        try {
+            console.log('[BeforeUnmount] Component will unmount');
+        } catch (error) {
+            console.error('[BeforeUnmount] Error:', error);
+        }
+    };
+
+    // Get final Vue component definition
+    setVueJson = () => {
+        return {
+            components: this.getUIComponents(),
+            data: this.getAppStateData(),
+            computed: this.getAppComputedVariables(),
+            watch: this.getAppWatchers(),
+            created: this.handleOnCreatedLogic,
+            mounted: this.handleOnMountedLogic,
+            beforeUnmount: this.handleBeforeUnmountedLogic,
+        };
+    };
+}
+
+export default new BaseAppController().setVueJson();

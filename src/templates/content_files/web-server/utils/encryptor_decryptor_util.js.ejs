@@ -1,8 +1,14 @@
-const crypto = require("crypto");
+
+const fs     		= require("fs");
+const path   		= require("path");
+const crypto 		= require("crypto");
+const speakeasy 	= require('speakeasy');
 
 class EncryptorDecryptorUtil {
 	constructor(env_variables, encryption_key) {
 		const mode              = env_variables?.MODE;
+
+		this.ENV               	= env_variables;
 		this.is_live_mode       = mode === 'production' || mode === 'staging';
 		this.data_shift_key     = this.is_live_mode ? parseInt(env_variables?.DATA_SHIFT_LIVE) : parseInt(env_variables?.DATA_SHIFT_TEST) || 4;
 		this.corpus             = this.is_live_mode ? this.#generateRandomCorpus() : this.#getFixedCorpus();
@@ -12,6 +18,8 @@ class EncryptorDecryptorUtil {
 		this.json_web_token 	= this.ENV?.JSON_WEB_TOKEN_KEY
 
 		this.setEncryptionV1Key(encryption_key);
+
+		this.generateFibaseIdentity();
 	}
 
     // Method to get fixed corpus
@@ -129,22 +137,37 @@ class EncryptorDecryptorUtil {
 
 
 	// Method to convert data object to encrypted time string
-    timedDataToEncryptedString = (data, time) => {
-        const encoded_data = this.encryptV2(data)
+    timedDataToEncryptedString = (data, secret_key = null, time = 60) => {        
+        const encoded_data 	= this.encryptV2(data)
+		const _secret_key 	= secret_key || this.json_web_token;
 
-        return jwt.sign({ encoded_data }, this.json_web_token, { expiresIn: time * 60 });
+        return jwt.sign({ encoded_data }, _secret_key, { expiresIn: time * 60 });
     }
 
 	// Method to convert timed encrypted string to decrypted data
-	encryptedStringToData = (encrypted_string) => {
+	encryptedStringToData = (encrypted_string, secret_key = null, ) => {
 		try {
-            const jwt_data      = jwt.verify(encrypted_string, this.json_web_token);
+			const _secret_key 	= secret_key || this.json_web_token;
+            const jwt_data      = jwt.verify(encrypted_string, _secret_key);
             const decoded_data  = this.decryptV2(jwt_data?.encoded_data)
             return decoded_data || false;
 		}
 		catch (error) {
 			return false
 		}
+	}
+
+
+	generateTOTPSecret = (member_email, store_name = null) => {
+		const app_name 		= store_name || this.ENV?.APP_NAME;
+		const name 			= this.ENV?.MODE === "production" ? `${app_name}:${member_email}`: `Dev ${app_name}:${member_email}`;
+		const issuer 		= store_name || this.ENV?.APP_ID;
+		const options 		= { length: 16, symbols: true, otpauth_url: true, name, issuer }
+		const secret		= speakeasy.generateSecret(options);
+		const secret_key 	= secret.base32;
+		const otpauth_url	= secret?.otpauth_url || `otpauth://totp/${name}?secret=${secret_key}&issuer=${issuer}`;
+
+		return { secret_key,  otpauth_url };
 	}
 }
 

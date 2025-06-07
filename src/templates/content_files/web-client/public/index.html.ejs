@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="/assets/img/ico/logo.ico" sizes="16x16 32x32" />
+  
+  <meta name="title" content="<%= project_name.toUpperCase() %> - <%= project_passphrase %>">
+  <meta name="keywords" content="<%= keywords.join(', ') %>">
+  <meta name="author" content="FiberX Innovations Ltd.">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="<%= description %>">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+
+  <link rel="canonical" href="<%= project_live_base_url %>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/assets/css/output.css" >
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,900&display=swap">
+  
+  <title><%= project_name.toUpperCase() %> - <%= project_passphrase %></title>
+</head>
+
+<body id="app">
+  <script type="module" src="./main.js"></script>
+  <script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoaded&render=explicit" defer></script>
+</body>
+
+</html>

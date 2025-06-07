@@ -1,0 +1,71 @@
+const crypto        = require('crypto');
+const LoggerUtil    = require("../utils/logger_util");
+
+class CookieManagerMiddleWare {
+    constructor(env_variables) {
+        this.name               = "cookie_manager_middleware"
+        this.ENV                = env_variables;
+        this.is_production      = this.ENV.MODE === 'production';
+        this.logger             = new LoggerUtil(this.name, this.helper.ENV);
+    }
+
+    // Sets a cookie on the response
+    setCookie = (res, name, value, options = {}) => {
+        const default_options = {
+            httpOnly: true,
+            secure: this.is_production, // only send over HTTPS in production
+            sameSite: 'Strict',  // prevent CSRF
+            path: '/',
+            maxAge: 1000 * 60 * 60 * 24 * 7 // 7 days
+        };
+
+        const cookie_options = { ...default_options, ...options };
+
+        res.cookie(name, value, cookie_options);
+    };
+
+    // Generates a random session ID and sets it as a secure cookie
+    generateAndSetSessionID = (res) => {
+        const session_id     = crypto.randomUUID();
+        this.setCookie(res, 'session_id', session_id);
+        return session_id;
+    };
+
+    // Parses cookies from the request headers into a key-value map
+    parseCookies = (req) => {
+        const cookie_header = req.headers.cookie;
+        if (!cookie_header) return {};
+
+        const cookie_object = Object.fromEntries(
+            cookie_header
+                .split(';')
+                .map(cookie => cookie.trim().split('='))
+                .map(([key, ...val]) => [key, decodeURIComponent(val.join('='))])
+        );
+
+        req.cookies_object = cookie_object;
+        return cookie_object // Store parsed cookies in request object
+    };
+
+    // Gets a specific cookie from the request
+    getCookie = (req, name) => {
+        const cookies = this.parseCookies(req);
+        return cookies[name] || null;
+    };
+
+    ensureSessionId = (req, res, next) => {
+        const session_id = this.getCookie(req, 'session_id');
+        if (!session_id) {
+            const new_session_id = this.generateAndSetSessionID(res);
+            this.logger.info("New Session ID created:", new_session_id);
+        } else {
+            this.logger.info("Existing Session ID found:", session_id);
+        }
+
+        this.parseCookies(req);
+
+        next();
+    };
+}
+
+module.exports = CookieManagerMiddleWare;
