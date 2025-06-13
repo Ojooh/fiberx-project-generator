@@ -1,4 +1,4 @@
-// apps/store/vite.config.js
+
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { fileURLToPath, URL } from "node:url";
@@ -19,7 +19,10 @@ export default defineConfig({
     publicDir: "./public/",
 
     resolve: {
-        alias: { "@": fileURLToPath(new URL("./src/", import.meta.url)) }
+        alias: { 
+            "@": fileURLToPath(new URL("./src", import.meta.url)),
+            "@ui": fileURLToPath(new URL("/Users/ojooh/Documents/Projects/fi-ui-toolkit", import.meta.url)),
+        }
     },
     appType: "spa",
 
@@ -28,12 +31,12 @@ export default defineConfig({
 
         rollupOptions: { input: "./public/index.html" }
     },
-    optimizeDeps: {  include: ['src/**/*.vue'] },
+   optimizeDeps: {  include: ['src/**/*.vue', "../fi-ui-toolkit/**/*.vue"] },
 
     server: {
         port: Number(process.env.VITE_DEV_PORT || 5172),
         strictPort: true,
         open: true, 
-        historyApiFallback: true,
+        historyApiFallback: true
     }
 });

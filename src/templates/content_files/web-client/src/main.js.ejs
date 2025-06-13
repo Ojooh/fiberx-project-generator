@@ -26,18 +26,17 @@ class <%= project_name_pascal %>App {
     }
 
     // method to get app content_data
-    getAppContentData = () => {
+    getAppContentData = async () => {
         const app_content_data_url      = this.ENV?.VITE_APP_CONTENT_DATA_URL;
         const icon_content_data_url     = this.ENV?.VITE_ICON_CONTENT_DATA_URL;
 
-        this.content_manager_util.load(app_content_data_url, "content_resource");
-        this.content_manager_util.load(icon_content_data_url, "icon_resource")
+        if(app_content_data_url) { await this.content_manager_util.load(app_content_data_url, "content_resource"); }
+
+        if ( icon_content_data_url) { await this.content_manager_util.load(icon_content_data_url, "icon_resource"); }
     }
 
     //initialze app gloabl variables
     initializeAppGlobalProperties = () => {
-        this.getAppContentData();
-        
         this.app.config.globalProperties.$ENV               = this.ENV;
         this.app.config.globalProperties.$event_system      = this.event_system_util;
         this.app.config.globalProperties.$socket_link       = this.socket_manager_util?.socket_link;
@@ -46,7 +45,9 @@ class <%= project_name_pascal %>App {
     }
 
     // Method to mount the Vue app
-    mountApp(selector) {
+    mountApp = async (selector) => {
+        await this.getAppContentData();
+
         this.app.use(this.router);
         this.app.mount(selector);
 
@@ -58,5 +59,9 @@ class <%= project_name_pascal %>App {
 }
 
 // Create and mount the Vue app
-const vueApp = new <%= project_name_pascal %>App(App);
-vueApp.mountApp('#app');
+const main = async() => {
+    // Create and mount the Vue app
+    const vueApp = new <%= project_name_pascal %>App(App);
+    await vueApp.mountApp('#app');
+}
+main()

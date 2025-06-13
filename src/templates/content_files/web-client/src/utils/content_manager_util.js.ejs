@@ -1,4 +1,6 @@
-
+import fs from 'fs/promises'; // Async FS
+import path from 'path';
+import { URL } from 'url';
 
 class ContentManagerUtil {
     constructor(global_var_instance) {
@@ -8,18 +10,22 @@ class ContentManagerUtil {
         this.is_loaded              = false;
     }
 
-    // Load content data from a given JSON URL.
+      // Load content data from a given JSON URL.
     load = async (json_url, json_key) => {
         if (this.is_loaded) { return; }
 
         try {
             const response = await fetch(json_url);
 
-            if (!response?.ok) { throw new Error(`Failed to fetch content data: ${response.statusText}`); }
+            if (!response?.ok) {
+                throw new Error(`Failed to fetch content data: ${response.statusText}`);
+            }
 
-            const response_data = { [json_key]: await response.json() }
-            this.content_data   =  { ...response_data };
-            this.is_loaded      = Object.keys(this.content_data).length > 0;
+            const content           = await response.json();
+            const response_data     = { [json_key]: content };
+            this.content_data       = { ...response_data };
+            this.is_loaded          = Object.keys(this.content_data).length > 0;
+            
             this.global_var_instance.setVariable(this.content_data_key, this.content_data);
             
             return this.is_loaded;

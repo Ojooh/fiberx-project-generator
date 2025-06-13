@@ -1,5 +1,7 @@
 class BaseAppController {
-    constructor() {}
+    constructor(vue_instance) {
+        this.vm = vue_instance;
+    }
 
     // Public method to expose components
     getUIComponents = () => {
